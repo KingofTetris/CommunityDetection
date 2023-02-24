@@ -185,6 +185,7 @@ class graph:
                 if loop_count >= 10 * self.node_count:
                     break
                 #py3 keys不允许切片，强转成list就行
+                #随机选择非平衡节点进行博弈
                 selected_node = random.choice(list(disequilibrium_node_list.keys()))
                 del disequilibrium_node_list[selected_node]
                 "print neighbors=,len(self.graphlist[selected_node])"

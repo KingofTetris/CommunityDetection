@@ -1,35 +1,25 @@
-community number£º  
-12
-
+community number:  
+32
 
 
 loop number:  
-5
+1
 
 
-
-The best partition in loop£º     
-itern = 2
-
+The best partition in loop:     
+itern = 1
 
 
-The highest NMI value£º 
-0.926884056453
+The highest NMI value: 
+0.803217302504141
 
 
-
-All NMI values£º 
-[0.78958929985475779, 0.90991800011454471, 0.92688405645255423, 0.92688405645255423, 0.92688405645255423, 0.92688405645255423]
-
+All NMI values: 
+[0.7705494037373325, 0.803217302504141]
 
 
-All ARI values£º     
-[0.36204710296477255, 0.8591994197906723, 0.8893431553253587, 0.8893431553253587, 0.8893431553253587, 0.8893431553253587]
+All ARI values:     
+[0.36015259789533083, 0.5481346946670284]
 
-
-
-runtime£º  
+runtime:  
 0 s
-
-
-

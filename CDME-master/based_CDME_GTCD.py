@@ -55,6 +55,9 @@ class non_overlap_game:
         # 而defaultdict自动设置了默认值，
         # defaultdict类的初始化函数接受一个类型作为参数，当所访问的键不存在的时候，可以实例化一个值作为默认值；
         self.node_community = defaultdict(int)
+
+        #每个节点的收益，用来记录是否还有节点的收益发生变化，用于算法的收敛，未来也可以用于记录不平衡节点
+        self.utility_nodes = defaultdict(int)
         # Initialize communities of each node
         # 初始化社区，每个节点当作一个社区。
 
@@ -64,11 +67,15 @@ class non_overlap_game:
         # 调用 dict() 函数将 zip() 对象强制转换成字典：
         # 他这句话的意思就是 {(1:1),(2:2),...,(n:n)} 里面一个节点就是一个社区，社区编号就是自己的编号。
         self.node_community = dict(zip(self.G.nodes(), self.G.nodes()))
-     
+
+        # self.utility_list = {node: self.initial_singleton_community(node)[0] for node in self.graphlist.keys()}
+        self.utility_nodes = {node : 0 for node in self.G.nodes()} #初始每个节点初始收益都设为0
        
         #Compute the core groups 从这里开始是构造核心组，你可以看看要不要在这上面继续改造。
         # 其实可以，参考A Four-Stage Algorithm for Community Detection Based on Label Propagation and Game Theory in Social Networks
         # 一开始快速形成一个初始社区有助于加速
+
+
 
         #那么他构造所谓的核心组，你也可以根据你的亲密度函数来构造你的"核心组"
         # 现在的做法是计算两个节点的平均亲密度。
@@ -106,6 +113,15 @@ class non_overlap_game:
 
                         #让当前节点加入根据亲密度选中节点的社区。
                         self.node_community[node] = self.node_community[selected]
+
+        #1490节点 到这里都能正常运行
+
+        #有了核心组以后现在可以计算每个节点的初始收益了
+        for node in self.G.nodes():
+            #更新节点的收益为他目前在核心组的收益
+            self.utility_nodes[node] = self.utility_function(node,self.node_community[node])
+            # self.utility_nodes[node] = self.utility_linear_function(node,self.node_community[node])
+
 
     #Compute the jaccard similarity coefficient of two node
     def simjkd(self, u, v):        
@@ -148,14 +164,13 @@ class non_overlap_game:
     def community_detection_game(self, outdirpath, fname):
         NMI = -1.0
         max_NMI = -2.0
-        maxit = 5  # 设置迭代次数为5 你当然可以设为10
+        maxit = 1  # 设置迭代次数为5 你当然可以设为10
         itern = 0 # 当前迭代回合
 
         largest_NMI_itern = 0  # 取得最大NMI的回合
         max_node_community = defaultdict(int)
         nmilist = []
         arilist = []
-
         # The groundtruth
         LB = []
         # Read the groundtruth communities
@@ -201,18 +216,21 @@ class non_overlap_game:
             #随机选择博弈节点
             # for node in set(self.G.nodes()):
             isChange = True
+
             nums = 0 #记录跑了多少个节点
             last_node = None #用来记录上一个节点的变量
             while isChange is True: #如果有改变就继续博弈
                 #下面的代码问题是只要遇到一个不再改变自己收益函数的节点就停止博弈了，显然是有问题的。
+                #但按照以往的经验达到纳什均衡的过程中，可能存在节点策略来回震荡的情况，需要多回合的博弈来稳定
+                #但达到均衡后社区的精度并没有发生明显的提升，因此没有必要完全达到纳什均衡再停止
+                #可以设置一个平衡节点，当平衡节点数量达到总节点的α倍就结束。
                 node = random.choice(list(self.G.nodes())) #随机选择博弈节点
                 # print("随机选择的节点是" + str(node))
                 if last_node == node: #如果和上回合选的一样就没必要博弈了，重新选
                     continue
                 else:
-                    last_node = node #如果不一样就赋给last_node
-                origin_node_community = self.node_community[node]
-                paysoff_node = self.paysoff_function(node,origin_node_community) #节点的初始收益就是形成初始核心组的收益
+                    last_node = node #如果不一样就赋给last_node，继续记录下上一个节点
+
                 #尝试加入邻居社区
                 neiglist = self.G.neighbors(node)
                 communities_neigh = set()
@@ -222,12 +240,21 @@ class non_overlap_game:
 
                 #随机顺序遍历相邻的社区，并尝试加入
                 for c in communities_neigh:
-                    pays_neig = self.paysoff_function(node,c) #计算节点node加入社区c能获得的收益
-                    if pays_neig > paysoff_node:
-                        paysoff_node = pays_neig #更新为最大收益
-                        isChange = True
-                        self.node_community[node] = c #加入这个邻居社区
 
+                    node_community = self.node_community[node]  # 取出博弈过程中变化的当前node社区
+                    utility_node = self.utility_nodes[node]  # 博弈过程中节点的收益
+
+                    if c == node_community: #如果c和节点的当前社区一致就没必要算了(本来就在一起，还加入什么),算下一个相邻的c
+                        continue
+                    utility_neig = self.utility_function(node,c) #计算节点node加入社区c能获得的收益
+                    # utility_neig = self.utility_linear_function(node,c) #计算节点node加入社区c能获得的收益
+                    if utility_neig > utility_node:
+                        isChange = True #有节点的收益发生变化
+                        self.node_community[node] = c #加入这个邻居社区
+                        self.utility_nodes[node] = utility_neig #更新节点的收益
+
+                #问题在这里，把所有节点都访问一次以后就可以结束了吗？？
+                #应该是所有节点访问一圈都没有人选择改变策略 才是结束吧
                 nums = nums + 1
                 if(nums == self.node_count):
                     isChange = False  # 所有节点都不改变了才是False
@@ -235,6 +262,8 @@ class non_overlap_game:
 
             newLA = [self.node_community[k] for k in self.input_node_community.keys()]
             print("博弈后newLA:" + str(newLA))
+            NMI_LA_newLA = metrics.normalized_mutual_info_score(newLA,LA) #比较LA 和 newLA 有多少相似（改变）
+            print("博弈后newLA对比LA的相似度(NMI)是:" + str(NMI_LA_newLA)) #用来比较博弈到底产生了多大作用
             NMI = metrics.normalized_mutual_info_score(newLA, LB)
             ARI = metrics.adjusted_rand_score(newLA, LB)
             nmilist.append(NMI)
@@ -275,7 +304,7 @@ class non_overlap_game:
         f.write(str(arilist))
         f.close()
 
-    def paysoff_function(self,u,c): # 节点u在社区c中的收益
+    def utility_function(self,u,c): # 节点u在社区c中的收益
        paysoff_u = 0
        u_community = self.node_community[u] #节点u的社区标签
 
@@ -289,6 +318,33 @@ class non_overlap_game:
                paysoff_u = paysoff_u + 1/2 * (list[0] + list[1]) * (u_community & v_community)
 
        return paysoff_u
+
+
+    #这个收益函数比前面的要差
+    #gain = 1/2m ∑(i,j) (Aijδ(i,j) - Intimacydidj/2m * |si ∩ sj|  δ(i,j)表示i.j是否有共同标签
+    #loss = 1/2m (|si| - 1)
+    def utility_linear_function(self,u,c): # 节点u在社区c中的收益
+        gain_function = 0
+        for neigh in self.G.neighbors(u): #Aij = 1
+            community_neigh = self.node_community[neigh]
+            community_node = self.node_community[u]
+
+            deerta = 0
+            # δ(i,j)表示i.j是否有共同标签
+            if community_neigh != community_node:
+                deerta = 0
+            else:
+                deerta = 1
+            gain_function = 1/2 * self.edge_count * \
+                            (1 * deerta - \
+                            1/2 * (self.simintimacy(u,neigh)[0] + self.simintimacy(u,neigh)[1]) \
+                             * self.deg[u] * self.deg[neigh] / 2 * self.edge_count * 1 )
+                            # * (community_node & community_neigh) ) #正常是要取交集，但是这里单社区，直接数字1就行了
+
+        # loss_function = 1/ 2 * self.edge_count * (len(self.node_community[u]) - 1) # 目前做单社区，那不能用len函数，其实就是1 没有损失
+        loss_function = 0
+        utility = gain_function - loss_function
+        return utility
 
     # The internal degree of node v in a community 计算节点v在社区中的内在度in_v
     # 原来的作者当然还进行了更改
