@@ -18,9 +18,9 @@ def preWork(filepath):
 def toGML():
     G = nx.Graph()
     # 定义边文件和社团文件
-    edge_file = './data/LFR_benchmark/LFR_test/LFR_node3000/network.dat'
+    edge_file = './data/LFR_benchmark/LFR_test/LFR_node3000/LFR_node3000.dat'
     #community_file = './data/real_network/polblogs_com.dat'
-    community_file = './data/LFR_benchmark/LFR_test/LFR_node3000/community.dat'
+    community_file = './data/LFR_benchmark/LFR_test/LFR_node3000/LFR_node3000_com.dat'
     # edge_file = './data/real_network/football.dat'
     # community_file = './data/real_network/football_com.dat'
     # 读取数据，并以tab键分割
@@ -72,8 +72,10 @@ def toGML():
     #draw_communities(G, partition)
     # # 另存为gml文件，可以注册NEUSNCP账号后上传gml文件，使用 https://neusncp.com/api/cd 的可视化工具验证
     nx.write_gml(G, 'data/res/LFR/node3000/nash_080_node3000.gml') #把图存为gml文件
+    print("done")
 
 #根据partition文件返回算法的分区
+#把一串社区化成1 12的形式，即1号节点归属12号社区。目的是为了转成GML文件进一步使用Gephi可视化
 def read_algorithm_community_and_save_community_dat(community_filepath):
     # algorithm_community_file = './data/algorithm_communities/nash_algorithm/nashOverlappingCommunities100_dolphins.dat'
     algorithm_community_file = community_filepath
