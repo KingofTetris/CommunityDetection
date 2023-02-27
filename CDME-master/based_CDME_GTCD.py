@@ -9,6 +9,9 @@ import random
 '''
 
 '''
+#TODO 而且这个程序把计算度量值都放在算法里了，实在是不太合理，后面有时间改一改
+
+#TODO 目前是非重叠版本
 class non_overlap_game:
 
 
@@ -70,12 +73,13 @@ class non_overlap_game:
 
         # self.utility_list = {node: self.initial_singleton_community(node)[0] for node in self.graphlist.keys()}
         self.utility_nodes = {node : 0 for node in self.G.nodes()} #初始每个节点初始收益都设为0
+
+        #记录是否还有节点的效用值在发生变化
+        self.utility_list = {node : False for node in self.G.nodes()} #初始都设为False 即没有变化
        
         #Compute the core groups 从这里开始是构造核心组，你可以看看要不要在这上面继续改造。
         # 其实可以，参考A Four-Stage Algorithm for Community Detection Based on Label Propagation and Game Theory in Social Networks
         # 一开始快速形成一个初始社区有助于加速
-
-
 
         #那么他构造所谓的核心组，你也可以根据你的亲密度函数来构造你的"核心组"
         # 现在的做法是计算两个节点的平均亲密度。
@@ -164,13 +168,17 @@ class non_overlap_game:
     def community_detection_game(self, outdirpath, fname):
         NMI = -1.0
         max_NMI = -2.0
-        maxit = 1  # 设置迭代次数为5 你当然可以设为10
+        maxit = 10  # 设置迭代次数为5 你当然可以设为10
         itern = 0 # 当前迭代回合
 
         largest_NMI_itern = 0  # 取得最大NMI的回合
-        max_node_community = defaultdict(int)
+        max_node_community = defaultdict(int) #记录下最大社区
+
+        #记录nmi ari 和 Q
         nmilist = []
         arilist = []
+        Qlist = []
+
         # The groundtruth
         LB = []
         # Read the groundtruth communities
@@ -201,13 +209,21 @@ class non_overlap_game:
         #所以他实际上把核心组也做了一次对比NMI
         NMI = metrics.normalized_mutual_info_score(LA, LB)
         ARI = metrics.adjusted_rand_score(LA, LB)
+
+        #Q的计算要把节点分成一个社区
+        #比如parition = [[1,3,4,5,6],[8,54,33,12,44]] 里面一个[]就是一个社区
+        #所以问题来了，你要把LA转化成partition才能直接用Q
+        partition = self.Lables_to_Partition(LA) #LA是算法分区
+        Q = modularity(self.G,partition)
+
         nmilist.append(NMI)
         arilist.append(ARI)
+        Qlist.append(Q)
 
         if (max_NMI < NMI):
             max_NMI = NMI
             largest_NMI_itern = itern
-            max_node_community = self.node_community.copy() #获得最佳分区到max_node_community
+            max_node_community = self.node_community.copy() #获得最佳社区结构到max_node_community
 
         print("loop begin:")
 
@@ -226,17 +242,17 @@ class non_overlap_game:
                 #可以设置一个平衡节点，当平衡节点数量达到总节点的α倍就结束。
                 node = random.choice(list(self.G.nodes())) #随机选择博弈节点
                 # print("随机选择的节点是" + str(node))
-                if last_node == node: #如果和上回合选的一样就没必要博弈了，重新选
+                if last_node == node: #如果和上回合选的节点一样就没必要博弈了，重新选
                     continue
                 else:
-                    last_node = node #如果不一样就赋给last_node，继续记录下上一个节点
+                    last_node = node #如果不一样就赋给last_node，继续记录下上一个节点是谁
 
                 #尝试加入邻居社区
                 neiglist = self.G.neighbors(node)
                 communities_neigh = set()
                 for neig in neiglist:
                     C = self.node_community[neig]
-                    communities_neigh.add(C)
+                    communities_neigh.add(C) #将邻居社区添加到邻居社区集合中，用无序来保证随机访问。
 
                 #随机顺序遍历相邻的社区，并尝试加入
                 for c in communities_neigh:
@@ -246,17 +262,34 @@ class non_overlap_game:
 
                     if c == node_community: #如果c和节点的当前社区一致就没必要算了(本来就在一起，还加入什么),算下一个相邻的c
                         continue
+                    #如果和当前社区不一样
                     utility_neig = self.utility_function(node,c) #计算节点node加入社区c能获得的收益
                     # utility_neig = self.utility_linear_function(node,c) #计算节点node加入社区c能获得的收益
-                    if utility_neig > utility_node:
-                        isChange = True #有节点的收益发生变化
+                    if utility_neig >= utility_node: #如果变大或者等于，则加入新的社区，等于是为了尽可能让节点形成社区，以防小社区的出现
                         self.node_community[node] = c #加入这个邻居社区
                         self.utility_nodes[node] = utility_neig #更新节点的收益
+                        self.utility_list[node] = True #记录为True，节点的社区变化了
+                    else:
+                        self.utility_list[node] = False #如果没改变就记录为False
 
                 #问题在这里，把所有节点都访问一次以后就可以结束了吗？？
                 #应该是所有节点访问一圈都没有人选择改变策略 才是结束吧
-                nums = nums + 1
-                if(nums == self.node_count):
+                #nochange_num = 0 #没改变的数量，每轮都要重置为0，所以写在for外面，while里面
+                for node in self.G.nodes():
+                    #如果有一个等于True,就不能停止，继续博弈
+                    if self.utility_list[node] == True:
+                        isChange = True
+
+                    # TODO: 为什么加上了这个纳什均衡效果 NMI反而差了？是代码有问题吗？还是就让他博弈次数多一点效果更好？
+                    # TODO:另外Karate加不加博弈好像都没啥区别，说明Karate的社区在核心组形成后就没动了。34个节点都做不到NMI=1 想想办法！
+                    # #如果这个节点没改变社区，那就计数
+                    # else:
+                    #     nochange_num = nochange_num + 1
+                    #     if nochange_num == self.node_count: #如果全是Fasle，都没改变，那就是纳什均衡了。
+                    #         isChange = False
+
+                nums = nums + 1 #博弈的次数
+                if(nums == (5 * self.node_count)): #最多博弈次数到节点的5倍 就停止
                     isChange = False  # 所有节点都不改变了才是False
 
 
@@ -264,22 +297,30 @@ class non_overlap_game:
             print("博弈后newLA:" + str(newLA))
             NMI_LA_newLA = metrics.normalized_mutual_info_score(newLA,LA) #比较LA 和 newLA 有多少相似（改变）
             print("博弈后newLA对比LA的相似度(NMI)是:" + str(NMI_LA_newLA)) #用来比较博弈到底产生了多大作用
+
             NMI = metrics.normalized_mutual_info_score(newLA, LB)
             ARI = metrics.adjusted_rand_score(newLA, LB)
+
+            partition = self.Lables_to_Partition(newLA)  # LA是算法分区
+            Q = modularity(self.G,partition)
+
             nmilist.append(NMI)
             arilist.append(ARI)
+            Qlist.append(Q)
 
             if (max_NMI < NMI):
                 max_NMI = NMI
                 largest_NMI_itern = itern
-                max_node_community = self.node_community.copy()
+                max_node_community = self.node_community.copy() #记录下最佳NMI分区
             print("max_NMI:" + str(max_NMI))
             print("\n")
+
         print("loop done")
 
         self.node_community = max_node_community.copy()
 
         self.graph_result = defaultdict(list)
+
         for item in self.node_community.keys():
             node_comm = int(self.node_community[item])
             self.graph_result[node_comm].append(item)
@@ -302,8 +343,15 @@ class non_overlap_game:
         f.write("\n\n\n")
         f.write("All ARI values:     \n")
         f.write(str(arilist))
+        f.write("\n\n\n")
+        f.write("All Q values:     \n")
+        f.write(str(Qlist))
         f.close()
 
+
+
+
+    #收益函数1
     def utility_function(self,u,c): # 节点u在社区c中的收益
        paysoff_u = 0
        u_community = self.node_community[u] #节点u的社区标签
@@ -320,7 +368,7 @@ class non_overlap_game:
        return paysoff_u
 
 
-    #这个收益函数比前面的要差
+    #收益函数2 明明看起来更复杂但这个收益函数比前面的要差
     #gain = 1/2m ∑(i,j) (Aijδ(i,j) - Intimacydidj/2m * |si ∩ sj|  δ(i,j)表示i.j是否有共同标签
     #loss = 1/2m (|si| - 1)
     def utility_linear_function(self,u,c): # 节点u在社区c中的收益
@@ -360,3 +408,30 @@ class non_overlap_game:
         cin_v = 1.0*in_v*in_v #最后对内在度进行平方
         per = cin_v
         return per
+
+
+    '''
+    用于从社区标签到分区的函数，
+    eg: 
+    LA=[1, 1, 1, 1, 1, 1, 1, 1, 33, 10, 1, 1, 1, 1, 34, 34, 1, 1, 34, 1, 34, 1, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34]
+    化成
+    partition = [[1,2,3,4,5,6,7,...],[22],[12,13,14,15,...]]一个[]就是一个社区，里面是具体的社区成员编号（从1开始)
+    '''
+    def Lables_to_Partition(self,LA):
+        partition = []
+        temp = []
+        #copy_LA = LA.copy() #复制一份LA
+        #然后用set去重,然后用list保证顺序 这样community_number里就只剩下社区编号[1,33,10,34]了
+        community_number = list(set(LA))
+
+        #TODO 这里先遍历社区有很大问题啊 先遍历社区再遍历节点 那么算法复杂度是O(mn) n是节点数,m是社区数
+        for community in community_number:
+            for index in range(0,len(LA)): #左闭右开
+                if LA[index] == community:
+                    temp.append(index + 1) #把节点序列添加到temp里 python list的添加用append方法 +1是为了让节点从1开始
+
+            partition.append(temp)
+            temp = [] #清空temp
+
+        #print(partition)
+        return partition #最后就得到partition了
