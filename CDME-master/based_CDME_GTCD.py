@@ -83,25 +83,42 @@ class non_overlap_game:
 
         #那么他构造所谓的核心组，你也可以根据你的亲密度函数来构造你的"核心组"
         # 现在的做法是计算两个节点的平均亲密度。
-        for node in self.G.nodes():
+        # 把节点直接加入平均亲密度最大的邻居的社区。
+        # 不会有邻居社区不存在的情况，因为前面初始化的时候设置了一个节点就是一个社区
+
+        # TODO 现在问题是这么粗略地形成社区会影响社区精度
+        # 从实验结果来看 初始社区的结构很大一部分就决定了最终社区的结构(LA和newLA的NMI在0.7以上，博弈过程调整了30%)
+        # 但博弈特确实对NMI进行了改进，所以现在问题是怎么形成更好的初始社区？
+
+
+        #报错了 keyError,因为key是元组(34,17) 34号节点，度是17
+        #这个node要怎么改成self.nodes()
+        #for node 本质输出是一个字符串，所以只要取tup[0]就可以了
+        for tup in sorted(self.G.degree, key=lambda x: x[1], reverse=True): #x[1]就是度 按照度降序排列  但这个遍历输出的是元组 不是node
+        # for node in sorted(self.G.nodes()):
+        # for node in self.G.nodes(): #没降序的话，根本没必要sort，效果相差不大，但少一便sorted
+            node = tup[0]
             #The degree of each node
             deg_node = self.deg[node]
-            flag = True  #是否已标记核心组
+            flag = True  #标记节点是否为核心,True标记是，False标记为不是，初始都标记为True
             maxsimdeg = 0   #用于记录节点亲密度的最大值,每个节点都是从0开始的
             selected = node            
             if deg_node == 1: #如果节点的度为1，那么它的社区就是它唯一的那个邻居编号
                 self.node_community[node] = self.node_community[list(self.G.neighbors(node))[0]]
-            else:               #其他情况则遍历邻居 因为邻居的亲密度才有可能最大
+            else:               #其他情况则遍历邻居
                 for neig in self.G.neighbors(node):                   
                     deg_neig = self.deg[neig]       #邻居的度
-                    if flag is True and deg_node <= deg_neig: #Flag为true且当前节点的度小于等于邻居的度，那么他就可能会更改自己的核心组
+                    if flag is True and deg_node <= deg_neig: #Flag为true且当前节点的度小于等于邻居的度，那么他就不可能是一个核心
                         flag = False #标记为false
                         break # 结束当前节点对邻居的遍历
 
-                #判断flag是否为false，如果是true说明是度为1的节点，或者他是比所有邻居度都要大的节点，则遍历下一个节点
-                if flag is False: #先判断一下flag是否为false
+                #判断flag是否为false，如果是False，那么它就要加入一个核心组
+                if flag is False: #如果遍历完flag为false
                     # 若为false,则按节点的邻居的编号顺序从小到大遍历
-                    neighbors = sorted(self.G.neighbors(node))  # 按节点编号从小到大排序
+                    # 遍历邻居这里sort 不sort有区别吗？反正都是要把所有邻居遍历一遍的
+                    # neighbors = sorted(self.G.neighbors(node))  # 按节点编号从小到大排序
+
+                    neighbors = self.G.neighbors(node)  # 按节点编号从小到大排序
                     for neig in neighbors:
                         #取邻居的度
                         deg_neig = self.deg[neig]
@@ -109,16 +126,26 @@ class non_overlap_game:
                         # Compute the node attraction 节点亲密度
                         nodesim_u_v = self.simintimacy(node, neig)[0]
                         nodesim_v_u = self.simintimacy(node, neig)[1]
+                        #目前只是简单的计算平均值
+                        #实际上就是AAu_v * ( du + dv) / 2  AA乘以两者度的平均值
                         nodesimdeg = (nodesim_u_v + nodesim_v_u) / 2
-                        #如果算出来节点吸引力比以前的都要大
+
+                        #TODO 计算双向亲密度更复杂了以后反而没有更好
+                        # #用当前与当前邻居与当前节点的共同邻居数进一步细化
+                        # neighbors_now = self.G.neighbors(neig)
+                        # #化为集合才能用集合运算符
+                        # intersection = set(neighbors_now) & set(neighbors)
+                        # len_neigh = len(intersection)
+                        # #然后计算双向亲密度
+                        # nodesimdeg = (len_neigh / self.deg[neig] + len_neigh / self.deg[node]) * (nodesim_u_v + nodesim_v_u)
+
+                        #如果和这个邻居节点算出来的节点吸引力，比之前的都要大就更新
                         if nodesimdeg > maxsimdeg:
                             selected = neig #要选择的节点
                             maxsimdeg = nodesimdeg #更新最大值
 
-                        #让当前节点加入根据亲密度选中节点的社区。
+                        #让当前节点加入根据亲密度选中节点selected的社区。
                         self.node_community[node] = self.node_community[selected]
-
-        #1490节点 到这里都能正常运行
 
         #有了核心组以后现在可以计算每个节点的初始收益了
         for node in self.G.nodes():
@@ -126,28 +153,30 @@ class non_overlap_game:
             self.utility_nodes[node] = self.utility_function(node,self.node_community[node])
             # self.utility_nodes[node] = self.utility_linear_function(node,self.node_community[node])
 
-
-    #Compute the jaccard similarity coefficient of two node
-    def simjkd(self, u, v):        
-        set_v = set(self.G.neighbors(v))
-        set_v.add(v)
-        set_u = set(self.G.neighbors(u))
-        set_u.add(u)
-        jac = len(set_v & set_u) * 1.0 / len(set_v | set_u)    #集合相与取交集，相或取并集。
-        return jac
-
     # Compute the intimacy coefficient of two node
     #  u->v u对v的吸引力 因为参考现实中两个人的亲密度其实是不同的
     # 所以我们设置两个方向的吸引力，目前的区别仅仅是采用了各自的度
+
+    #目前最好的，还是原始AA版本
     def simintimacy(self,u,v):
         set_v = set(self.G.neighbors(v))
         set_u = set(self.G.neighbors(u))
         neighbors = set_v & set_u # u和v的公共邻居
 
+        #TODO
+        # 下面这段加上去好像karate的NMI直接从1变到0.5?!! 为什么？
+        # # 但是AA指数对于直接连边的节点对亲密度居然是0，这个时候我们要特殊处理一下节点对有直接连边 但是没有公共邻居的情况
+        # if len(neighbors) == 0 and self.G.edges(u,v) is not None:
+        #     #两者虽然没有公共邻居，但是直接连边的关系让亲密度也不会很低
+        #     #TODO 我们暂时让这个节点对的亲密度设为这条边的权重为两个节点的度数之和的一半
+        #     # 实验后看结果，这样处理了也没有太大差别。
+        #     avg = (self.deg[u] + self.deg[v]) / 2
+        #     return[avg,avg]
+
         #AA指数
         AA_uv = 0.0
 
-        #遍历公共邻居
+        #遍历公共邻居 另外 如果能到这一步，那么neighbors的长度至少是1，也就是一个公共邻居，应该不可能存在neg的度为1的情况
         for neg in neighbors:
             #获得邻居的度
             deg_neg = self.deg[neg]
@@ -162,6 +191,152 @@ class non_overlap_game:
         init_v_to_u = AA_uv * self.deg[v]
         #返回u对v 和v对u的亲密度
         return [init_u_to_v,init_v_to_u]
+
+
+    '''
+    下面四个是对四个不同亲密度指标的尝试(已经做了实验_2023_03_08)
+    都没有取得明显更好的效果
+    '''
+    #平衡AA指数 AAE
+    #该公式在计算节点相似度时，将节点度数的平方根作为加权系数，对AA指数进行平衡，
+    # 使得度数较大的节点不会对节点相似度指标造成过大的影响，从而更加合理地反映节点之间的相似度。
+    '''
+    def simintimacy(self,u,v):
+        set_v = set(self.G.neighbors(v))
+        set_u = set(self.G.neighbors(u))
+        neighbors = set_v & set_u # u和v的公共邻居
+
+        # 但是AA指数对于直接连边的节点对亲密度居然是0，这个时候我们要特殊处理一下节点对有直接连边 但是没有公共邻居的情况
+        if len(neighbors) == 0 and self.G.edges(u,v) is not None:
+            #两者虽然没有公共邻居，但是直接连边的关系让亲密度也不会很低
+            #TODO 我们暂时让这个节点对的亲密度设为这条边的权重为两个节点的度数之和的一半
+            # 实验后看结果，这样处理了也没有太大差别。
+            avg = (self.deg[u] + self.deg[v]) / 2
+            return[avg,avg]
+
+        #AA指数
+        AA_uv = 0.0
+
+        #遍历公共邻居 另外 如果能到这一步，那么neighbors的长度至少是1，也就是一个公共邻居，应该不可能存在neg的度为1的情况
+        for neg in neighbors:
+            #获得邻居的度
+            deg_neg = self.deg[neg]
+            #计算AA math.log默认以e为底也就是ln
+            #按理来说公共邻居的度至少是2，不知道为什么会出现1，可能数据集有误，这里处理一下。
+            # 防止deg_neg为1造成除0异常
+            if deg_neg == 1:
+                continue #如果为1 跳过这个节点
+            AA_uv = AA_uv + (1 / (math.log(deg_neg)))
+
+        #有了AA_uv以后多加一个权重系数来计算AAE_uv
+        AAE_uv = AA_uv/ math.sqrt(self.deg[u] * self.deg[v])
+
+        init_u_to_v = AAE_uv * self.deg[u]
+        init_v_to_u = AAE_uv * self.deg[v]
+        #返回u对v 和v对u的亲密度
+        return [init_u_to_v,init_v_to_u]
+    '''
+    ##RA版本
+    '''
+    def simintimacy(self,u,v):
+
+        set_v = set(self.G.neighbors(v))
+        set_u = set(self.G.neighbors(u))
+        neighbors = set_v & set_u # u和v的公共邻居
+
+        # 但是RA指数对于直接连边的节点对亲密度也是0，这个时候我们要特殊处理一下节点对有直接连边 但是没有公共邻居的情况
+        if len(neighbors) == 0 and self.G.edges(u,v) is not None:
+            #两者虽然没有公共邻居，但是直接连边的关系让亲密度也不会很低
+            #TODO 我们暂时让这个节点对的亲密度设为这条边的权重为两个节点的度数之和的一半
+            # 实验后看结果，这样处理了也没有太大差别。
+            avg = (self.deg[u] + self.deg[v]) / 2
+            return[avg,avg]
+
+        #RA指数
+        RA_uv = 0.0
+
+        #遍历公共邻居 另外 如果能到这一步，那么neighbors的长度至少是1，也就是一个公共邻居，应该不可能存在neg的度为1的情况
+        for neg in neighbors:
+            #获得邻居的度
+            deg_neg = self.deg[neg]
+            #计算AA math.log默认以e为底也就是ln
+            #按理来说公共邻居的度至少是2，不知道为什么会出现1，可能数据集有误，这里处理一下。
+            # 防止deg_neg为1造成除0异常
+            if deg_neg == 1:
+                continue #如果为1 跳过这个节点
+            RA_uv = RA_uv + (1 / deg_neg)
+
+        init_u_to_v = RA_uv * self.deg[u]
+        init_v_to_u = RA_uv * self.deg[v]
+        #返回u对v 和v对u的亲密度
+        return [init_u_to_v,init_v_to_u]
+    '''
+    #simRank版本
+    #对于节点度相同的节点，如果它们的邻居不同，那么亲密度值也会不同，
+    # 这可能导致一些节点被错误地归入不合适的社区中。为了避免这个问题，可以采用一些更加准确的亲密度指标，比如Katz指标或者SimRank指标。
+    '''
+    def simRank(self,u,v):
+        C = 0.7 #阻尼系数取值(0,1) 一般设置为0.6-0.8
+        if u == v:
+            return 1
+        #因为是无向图那么入邻居就是邻居
+        neigh_u = self.G.neighbors(u)
+        neigh_v = self.G.neighbors(v)
+
+        simRankValue = 0.0 #初始值
+
+        for temp_v in neigh_v:
+            for temp_u in neigh_u:
+                #递归计算相似度
+                simRankValue = simRankValue + self.simRank(temp_u,temp_v)
+
+        return simRankValue
+    '''
+    #Jaccard版本
+    #Compute the jaccard similarity coefficient of two node
+    #两节点的jaccard相似度
+    '''
+    def simintimacy(self, u, v):
+        set_v = set(self.G.neighbors(v))
+        set_v.add(v)
+        set_u = set(self.G.neighbors(u))
+        set_u.add(u)
+        jac = len(set_v & set_u) * 1.0 / len(set_v | set_u)    #集合相与取交集，相或取并集。
+        return [jac * self.deg[u],jac * self.deg[v]]
+    '''
+    #Saltin版本 比AA稍微差一点，但差不太多
+    '''
+    def simintimacy(self, u, v):
+        set_v = set(self.G.neighbors(v))
+        set_u = set(self.G.neighbors(u))
+        saltin = len(set_v & set_u) * 1.0 / math.sqrt(len(set_v)*len(set_u))  # 集合相与取交集，相或取并集。
+        return [saltin * self.deg[u], saltin * self.deg[v]]
+    '''
+    #Sorensen版本 dolphins的比AA好，其他稍差，也差不太多
+    '''
+    def simintimacy(self, u, v):
+        set_v = set(self.G.neighbors(v))
+        set_u = set(self.G.neighbors(u))
+        sorensen = 2 * len(set_v & set_u) * 1.0 / (len(set_v) + len(set_u))  # 集合相与取交集，相或取并集。
+        return [sorensen * self.deg[u], sorensen * self.deg[v]]
+    '''
+    #HP版本 也和AA差不多
+    '''
+    def simintimacy(self, u, v):
+        set_v = set(self.G.neighbors(v))
+        set_u = set(self.G.neighbors(u))
+        HP = len(set_v & set_u) * 1.0 / min(len(set_v),len(set_u))  # 集合相与取交集，相或取并集。
+        return [HP * self.deg[u], HP * self.deg[v]]
+    '''
+
+    #HD版本 和HP类似，结果和AA也大差不差。
+    '''
+    def simintimacy(self, u, v):
+        set_v = set(self.G.neighbors(v))
+        set_u = set(self.G.neighbors(u))
+        HD = len(set_v & set_u) * 1.0 / max(len(set_v), len(set_u))  # 集合相与取交集，相或取并集。
+        return [HD * self.deg[u], HD * self.deg[v]]
+    '''
 
     # Simulate the game
     # 在形成核心组的基础上再进行非合作博弈
@@ -208,6 +383,10 @@ class non_overlap_game:
 
         #所以他实际上把核心组也做了一次对比NMI
         NMI = metrics.normalized_mutual_info_score(LA, LB)
+
+        #经过比较以后，现在的博弈过程(仅加入相邻社区，计算相邻社区的邻居节点的亲密度之和作为效用函数)对小网络的NMI没有太大帮助(0.1以下)
+        #对大网络1490 的NMI提升可以到0.1-0.2
+        print("初始社区的NMI:" + str(NMI))
         ARI = metrics.adjusted_rand_score(LA, LB)
 
         #Q的计算要把节点分成一个社区
@@ -223,17 +402,16 @@ class non_overlap_game:
         if (max_NMI < NMI):
             max_NMI = NMI
             largest_NMI_itern = itern
-            max_node_community = self.node_community.copy() #获得最佳社区结构到max_node_community
+            max_node_community = self.node_community.copy() #获得最佳社区结构到max_node_community 用NMI来评判最佳
 
+
+        #开始博弈
         print("loop begin:")
 
         while itern < maxit: #开始博弈，实验maxit次
             itern += 1
-            #随机选择博弈节点
-            # for node in set(self.G.nodes()):
             isChange = True
-
-            nums = 0 #记录跑了多少个节点
+            nums = 0 #记录博弈多少次
             last_node = None #用来记录上一个节点的变量
             while isChange is True: #如果有改变就继续博弈
                 #下面的代码问题是只要遇到一个不再改变自己收益函数的节点就停止博弈了，显然是有问题的。
@@ -247,6 +425,9 @@ class non_overlap_game:
                 else:
                     last_node = node #如果不一样就赋给last_node，继续记录下上一个节点是谁
 
+                #用于纳什均衡的参数，当nochangeNum == self.node_count的时候 就是均衡了
+                #TODO 每轮博弈都要重新归零来保证纳什均衡,但目前效果最差。为什么？？
+                nochange_num = 0
                 #尝试加入邻居社区
                 neiglist = self.G.neighbors(node)
                 communities_neigh = set()
@@ -256,15 +437,12 @@ class non_overlap_game:
 
                 #随机顺序遍历相邻的社区，并尝试加入
                 for c in communities_neigh:
-
                     node_community = self.node_community[node]  # 取出博弈过程中变化的当前node社区
                     utility_node = self.utility_nodes[node]  # 博弈过程中节点的收益
-
                     if c == node_community: #如果c和节点的当前社区一致就没必要算了(本来就在一起，还加入什么),算下一个相邻的c
                         continue
                     #如果和当前社区不一样
                     utility_neig = self.utility_function(node,c) #计算节点node加入社区c能获得的收益
-                    # utility_neig = self.utility_linear_function(node,c) #计算节点node加入社区c能获得的收益
                     if utility_neig >= utility_node: #如果变大或者等于，则加入新的社区，等于是为了尽可能让节点形成社区，以防小社区的出现
                         self.node_community[node] = c #加入这个邻居社区
                         self.utility_nodes[node] = utility_neig #更新节点的收益
@@ -279,7 +457,6 @@ class non_overlap_game:
                     #如果有一个等于True,就不能停止，继续博弈
                     if self.utility_list[node] == True:
                         isChange = True
-
                     # TODO: 为什么加上了这个纳什均衡效果 NMI反而差了？是代码有问题吗？还是就让他博弈次数多一点效果更好？
                     # TODO:另外Karate加不加博弈好像都没啥区别，说明Karate的社区在核心组形成后就没动了。34个节点都做不到NMI=1 想想办法！
                     # #如果这个节点没改变社区，那就计数
@@ -287,16 +464,18 @@ class non_overlap_game:
                     #     nochange_num = nochange_num + 1
                     #     if nochange_num == self.node_count: #如果全是Fasle，都没改变，那就是纳什均衡了。
                     #         isChange = False
-
+                    #         print("我是纳什均衡停下来的")
                 nums = nums + 1 #博弈的次数
                 if(nums == (5 * self.node_count)): #最多博弈次数到节点的5倍 就停止
                     isChange = False  # 所有节点都不改变了才是False
-
+                    print("我是博弈次数到节点的5倍就停下来的")
 
             newLA = [self.node_community[k] for k in self.input_node_community.keys()]
-            print("博弈后newLA:" + str(newLA))
+            print("非合作博弈后newLA:" + str(newLA))
             NMI_LA_newLA = metrics.normalized_mutual_info_score(newLA,LA) #比较LA 和 newLA 有多少相似（改变）
-            print("博弈后newLA对比LA的相似度(NMI)是:" + str(NMI_LA_newLA)) #用来比较博弈到底产生了多大作用
+            print("非合作博弈后newLA对比LA的相似度(NMI)是:" + str(NMI_LA_newLA) + ",非合作博弈后产生的不同为" + str(1 - NMI_LA_newLA)) #用来比较博弈到底产生了多大作用
+
+            #尝试使用合作博弈去掉小社区
 
             NMI = metrics.normalized_mutual_info_score(newLA, LB)
             ARI = metrics.adjusted_rand_score(newLA, LB)
@@ -311,7 +490,7 @@ class non_overlap_game:
             if (max_NMI < NMI):
                 max_NMI = NMI
                 largest_NMI_itern = itern
-                max_node_community = self.node_community.copy() #记录下最佳NMI分区
+                max_node_community = self.node_community.copy() #记录下这maxit次迭代的最佳NMI分区
             print("max_NMI:" + str(max_NMI))
             print("\n")
 
@@ -323,9 +502,16 @@ class non_overlap_game:
 
         for item in self.node_community.keys():
             node_comm = int(self.node_community[item])
+            #一个[node_comm]对于一个list就是一个社区
             self.graph_result[node_comm].append(item)
 
         f = open(outdirpath + "/" + fname + ".txt", "w+")
+        #分区文件写道fname_partition.txt里面
+        f1 = open(outdirpath + "/" + fname + "_partition.txt","w+")
+        # print(self.graph_result)
+        for keys,values in self.graph_result.items():
+            f1.write(str(values).strip('[').strip(']'))
+            f1.write('\n')
         f.write("community number:  \n")
         f.write(str(len(self.graph_result.keys())))
         f.write("\n\n\n")
@@ -349,13 +535,13 @@ class non_overlap_game:
         f.close()
 
 
-
-
     #收益函数1
     def utility_function(self,u,c): # 节点u在社区c中的收益
        paysoff_u = 0
        u_community = self.node_community[u] #节点u的社区标签
 
+       #只去计算在相邻社区c中的邻居节点的亲密度
+       #让他们累加起来作为节点u的效用
        for v in self.G.neighbors(u):
            v_community = self.node_community[v]  # 节点v的社区标签
            if (v_community == c): #如果v在社区c中，那么才会计算收益

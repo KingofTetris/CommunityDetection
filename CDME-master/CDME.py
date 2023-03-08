@@ -61,8 +61,9 @@ class non_overlap_cdme:
             maxsimdeg = 0            
             selected = node            
             if deg_node == 1:
-                self.node_community[node] = self.node_community[self.G.neighbors(node)[0]]
-            else:               
+                # self.node_community[node] = self.node_community[self.G.neighbors(node)[0]]
+                self.node_community[node] =  self.node_community[list(self.G.neighbors(node))[0]]
+            else:
                 for neig in self.G.neighbors(node):                   
                     deg_neig = self.deg[neig]                    
                     if flag is True and deg_node <= deg_neig:

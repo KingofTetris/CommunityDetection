@@ -10,14 +10,25 @@ G.add_edge('A','C',weight = 1)
 G.add_edge('B','C',weight = 4)
 nx.draw_networkx(G)
 
-print(G.nodes)
-print(G.nodes(data=True))
-print(G.edges)
-print(G.edges(data=True))
+# print(G.degree) #[('A', 2), ('B', 2), ('C', 2)]
+#
+# print(G.nodes) #['A', 'B', 'C']
+# print(G.nodes(data=True)) #[('A', {'role': 'teacher'}), ('B', {'role': 'student'}), ('C', {'role': 'manager'})]
+# print(G.edges) #[('A', 'B'), ('A', 'C'), ('B', 'C')]
+# print(G.edges(data=True)) #[('A', 'B', {'weight': 6, 'relation': 'family'}), ('A', 'C', {'weight': 1}), ('B', 'C', {'weight': 4})]
+#
+# print(G.nodes['A']['role']) #边直接取，点要先取nodes 结果是:teacher
+# print(G['A']['B']) #{'weight': 6, 'relation': 'family'}
+# print(G['A']['B']['weight']) # 6
 
-print(G.nodes['A']['role']) #边直接取，点要先取nodes
-print(G['A']['B'])
-print(G['A']['B']['weight'])
+for node in G.nodes():
+    print(node)
+    print(type(node))
+
+#节点按度降序
+for tup in sorted(G.degree,key = lambda x:x[1],reverse=True):
+    print(tup)
+    print(tup[0])
 
 # from networkx.algorithms import bipartite
 # B = nx.Graph()
