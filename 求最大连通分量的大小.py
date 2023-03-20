@@ -10,9 +10,7 @@ class Solution:
         G.add_edges_from(edges)
         max = 0;
         for i in nx.connected_components(G):
-            num = 0; #每轮令nums = 0
-            for nodes in i:
-                num = num + 1; #每有一个连通就+1
+            num = len(i) #取每个连通分量的大小
             if num > max:
                 max = num; #取最大的那个连通分量
         return max;
@@ -26,6 +24,6 @@ def gcd(a,b):
     return b
 
 if __name__ == '__main__':
-    nums = [2,3,6,7,4,12,21,39]
+    nums = [2,6,7,5,15,25]
     s = Solution()
     print(s.largestComponentSize(nums))

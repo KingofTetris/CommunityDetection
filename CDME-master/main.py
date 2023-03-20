@@ -10,7 +10,7 @@ if __name__ == '__main__':
     # "Input: a dataset name "
 
     #fnamelist =['football']
-    fnamelist = ["karate", "dolphins", 'football', 'polbooks']
+    fnamelist = ["karate", "dolphins", 'football', 'polbooks','polblogs']
 
     for fname in fnamelist:
 

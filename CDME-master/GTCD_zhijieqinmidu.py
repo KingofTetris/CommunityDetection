@@ -124,21 +124,12 @@ class non_overlap_game:
                     for neig in neighbors:
                         #取邻居的度
                         deg_neig = self.deg[neig]
-                        nodesimdeg =  self.simRank(node,neig)
-                        #TODO 计算双向亲密度更复杂了以后反而没有更好
-                        # #用当前与当前邻居与当前节点的共同邻居数进一步细化
-                        # neighbors_now = self.G.neighbors(neig)
-                        # #化为集合才能用集合运算符
-                        # intersection = set(neighbors_now) & set(neighbors)
-                        # len_neigh = len(intersection)
-                        # #然后计算双向亲密度
-                        # nodesimdeg = (len_neigh / self.deg[neig] + len_neigh / self.deg[node]) * (nodesim_u_v + nodesim_v_u)
-
+                        #计算亲密度(吸引力)
+                        nodesimdeg =  self.simintimacy(node,neig)
                         #如果和这个邻居节点算出来的节点吸引力，比之前的都要大就更新
                         if nodesimdeg > maxsimdeg:
                             selected = neig #要选择的节点
                             maxsimdeg = nodesimdeg #更新最大值
-
                         #让当前节点加入根据亲密度选中节点selected的社区。
                         self.node_community[node] = self.node_community[selected]
 
@@ -161,40 +152,60 @@ class non_overlap_game:
     # Compute the intimacy coefficient of two node
     #  u->v u对v的吸引力 因为参考现实中两个人的亲密度其实是不同的
     # 所以我们设置两个方向的吸引力，目前的区别仅仅是采用了各自的度
-    def simintimacy(self,u,v):
+    # def simintimacy(self,u,v):
+    #
+    #     set_v = set(self.G.neighbors(v))
+    #     set_u = set(self.G.neighbors(u))
+    #     neighbors = set_v & set_u # u和v的公共邻居
+    #
+    #     # 但是AA指数对于直接连边的节点对亲密度居然是0，这个时候我们要特殊处理一下节点对有直接连边 但是没有公共邻居的情况
+    #     if len(neighbors) == 0 and self.G.edges(u,v) is not None:
+    #         #两者虽然没有公共邻居，但是直接连边的关系让亲密度也不会很低
+    #         #TODO 我们暂时让这个节点对的亲密度设为这条边的权重为两个节点的度数之和的一半
+    #         # 实验后看结果，这样处理了也没有太大差别。
+    #         avg = (self.deg[u] + self.deg[v]) / 2
+    #         return[avg,avg]
+    #
+    #     #AA指数
+    #     AA_uv = 0.0
+    #
+    #     #遍历公共邻居 另外 如果能到这一步，那么neighbors的长度至少是1，也就是一个公共邻居，应该不可能存在neg的度为1的情况
+    #     for neg in neighbors:
+    #         #获得邻居的度
+    #         deg_neg = self.deg[neg]
+    #         #计算AA math.log默认以e为底也就是ln
+    #         #按理来说公共邻居的度至少是2，不知道为什么会出现1，可能数据集有误，这里处理一下。
+    #         # 防止deg_neg为1造成除0异常
+    #         if deg_neg == 1:
+    #             continue #如果为1 跳过这个节点
+    #         AA_uv = AA_uv + (1 / (math.log(deg_neg)))
+    #
+    #     init_u_to_v = AA_uv * self.deg[u]
+    #     init_v_to_u = AA_uv * self.deg[v]
+    #     #返回u对v 和v对u的亲密度
+    #     return [init_u_to_v,init_v_to_u]
 
+    # 综合考虑AA与共同邻居数量还有节点自身的度
+    def simintimacy(self, u, v):
         set_v = set(self.G.neighbors(v))
         set_u = set(self.G.neighbors(u))
-        neighbors = set_v & set_u # u和v的公共邻居
+        neighbors = set_v & set_u  # u和v的公共邻居
 
-        # 但是AA指数对于直接连边的节点对亲密度居然是0，这个时候我们要特殊处理一下节点对有直接连边 但是没有公共邻居的情况
-        if len(neighbors) == 0 and self.G.edges(u,v) is not None:
-            #两者虽然没有公共邻居，但是直接连边的关系让亲密度也不会很低
-            #TODO 我们暂时让这个节点对的亲密度设为这条边的权重为两个节点的度数之和的一半
-            # 实验后看结果，这样处理了也没有太大差别。
-            avg = (self.deg[u] + self.deg[v]) / 2
-            return[avg,avg]
-
-        #AA指数
         AA_uv = 0.0
-
-        #遍历公共邻居 另外 如果能到这一步，那么neighbors的长度至少是1，也就是一个公共邻居，应该不可能存在neg的度为1的情况
+        # 遍历公共邻居 另外 如果能到这一步，那么neighbors的长度至少是1，也就是一个公共邻居，应该不可能存在neg的度为1的情况
         for neg in neighbors:
-            #获得邻居的度
+            # 获得邻居的度
             deg_neg = self.deg[neg]
-            #计算AA math.log默认以e为底也就是ln
-            #按理来说公共邻居的度至少是2，不知道为什么会出现1，可能数据集有误，这里处理一下。
+            # 计算AA math.log默认以e为底也就是ln
+            # 按理来说公共邻居的度至少是2，不知道为什么会出现1，可能数据集有误，这里处理一下。
             # 防止deg_neg为1造成除0异常
             if deg_neg == 1:
-                continue #如果为1 跳过这个节点
+                continue  # 如果为1 跳过这个节点
             AA_uv = AA_uv + (1 / (math.log(deg_neg)))
 
-        init_u_to_v = AA_uv * self.deg[u]
-        init_v_to_u = AA_uv * self.deg[v]
-        #返回u对v 和v对u的亲密度
-        return [init_u_to_v,init_v_to_u]
-
-
+        init_uv = AA_uv * ((self.deg[u] + self.deg[v]) / (self.deg[v] * self.deg[u]) * len(neighbors))
+        # 返回uv的亲密度
+        return init_uv
     #对于节点度相同的节点，如果它们的邻居不同，那么亲密度值也会不同，
     # 这可能导致一些节点被错误地归入不合适的社区中。为了避免这个问题，可以采用一些更加准确的亲密度指标，比如Katz指标或者SimRank指标。
     # chatGPT建议的使用simRank来计算亲密度
@@ -251,8 +262,11 @@ class non_overlap_game:
 
     # 在形成核心组的基础上再进行非合作博弈
     def community_detection_game(self, outdirpath, fname):
-        NMI = -1.0
+        # 用于记录最大度量
         max_NMI = -2.0
+        max_ARI = -2.0
+        max_Q = -2.0
+
         maxit = 10  # 设置迭代次数为5 你当然可以设为10
         itern = 0 # 当前迭代回合
 
@@ -366,8 +380,7 @@ class non_overlap_game:
                     if self.utility_list[node] == True:
                         isChange = True
 
-                    # TODO: 为什么加上了这个纳什均衡效果 NMI反而差了？是代码有问题吗？还是就让他博弈次数多一点效果更好？
-                    # TODO:另外Karate加不加博弈好像都没啥区别，说明Karate的社区在核心组形成后就没动了。34个节点都做不到NMI=1 想想办法！
+                    # TODO: 为什么加上了这个纳什均衡效果 NMI反而差了？是代码有问题吗？还是就是让他博弈次数多一点效果更好？
                     # #如果这个节点没改变社区，那就计数
                     # else:
                     #     nochange_num = nochange_num + 1
@@ -394,8 +407,10 @@ class non_overlap_game:
             arilist.append(ARI)
             Qlist.append(Q)
 
-            if (max_NMI < NMI):
+            if (max_NMI < NMI or max_ARI < ARI or max_Q < Q):
                 max_NMI = NMI
+                max_ARI = ARI
+                max_Q = Q
                 largest_NMI_itern = itern
                 max_node_community = self.node_community.copy() #记录下最佳NMI分区
             print("max_NMI:" + str(max_NMI))
@@ -442,9 +457,9 @@ class non_overlap_game:
        for v in self.G.neighbors(u):
            v_community = self.node_community[v]  # 节点v的社区标签
            if (v_community == c): #如果v在社区c中，那么才会计算收益
-               simRankValue = self.simRank(u,v)
-               #那么你亲密度公式改了 收益函数当然也要改 改成simRank之和好了
-               paysoff_u = paysoff_u +  simRankValue * (u_community & v_community)
+               initValue = self.simintimacy(u,v)
+               #那么你亲密度公式改了 收益函数当然也要改 改成亲密度之和好了
+               paysoff_u = paysoff_u +  initValue * (u_community & v_community)
 
        return paysoff_u
 
