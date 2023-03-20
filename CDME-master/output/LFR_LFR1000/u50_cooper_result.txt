@@ -1,0 +1,33 @@
+Cooperative Game 
+
+
+final community number:  
+34
+
+
+The best partition in cooperate loop:     
+itern = 3
+
+
+The highest NMI value: 
+0.9858537783149077
+
+
+The highest ARI value: 
+0.9222698674502464
+
+
+The highest Q value: 
+0.46561845567867033
+
+
+All NMI values: 
+[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+
+All ARI values:     
+[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+
+All Q values:     
+[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
