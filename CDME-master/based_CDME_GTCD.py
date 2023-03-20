@@ -913,6 +913,7 @@ class non_overlap_game:
         coaliation_utility = {}
         for key in partition.keys():
             s_degree_sum = self.s_degree_sum(key,partition) #当前社区的总度，把partition也传进去，避免遍历整个网络。
+            # e_S = self.s_link_number(key,partition) #计算社区s内的边数量
             s_per = 0.0 #内在度
             for node in partition[key]:
                 # 计算每个社区节点的内在度之和
@@ -920,8 +921,8 @@ class non_overlap_game:
             # Q(S)= e(S)/D(S) - (D(S)/2|E|)^2 前面是内聚性程度，后面是惩罚项，合并成一个社区时惩罚最大，但其实4E^2是个固定常数，根本没什么计算的价值。
             # 其实这个Q(S)就是仿照模块度。很无语，所以你的合作博弈函数用这个，那目的就变成了提高模块度。
             s_utility = (s_per / s_degree_sum) - (s_degree_sum / (2 * self.edge_count))**2
+            # s_utility = (e_S / s_degree_sum) - (s_degree_sum / (2 * self.edge_count))**2
             # 模块度原公式 e(S)/|E| - (D(S)/2|E|)^2
-            #问题是你的e(S)好像算错了，定义里面是社区S中所有的边，不是内在度之和，但其实你只要把s_per/2 就是所有内在边的数量，
             # s_utility = (s_per / self.edge_count) - (s_degree_sum / (2 * self.edge_count))**2
             coaliation_utility[key] = s_utility
 
@@ -969,13 +970,19 @@ class non_overlap_game:
     '''
     计算社区s内的连边数量，不是内在度之和！
     '''
-    def s_links_number(self,s,partition):
-        sum = 0
-        for u in partition[s]:
-            for v in partition[s]:
-                if u != v and self.G.add_edge(u,v) is not None: #不重复且，边存在
-                    sum = sum + 1
-        return sum
+
+    def s_link_number(self, s, partition):
+        nodes = partition[s]  # get the nodes in community s
+        num_links = 0  # initialize the number of links to zero
+        for u in nodes:
+            rest = set(nodes)  # make a copy of the set
+            rest.remove(u)  # remove u from the set
+            for v in rest:
+                if self.G.edges(u,v) is not None:  # check if there is an edge between node i and node j
+                    num_links += 1  # increment the number of links
+            #遍历完u节点后，nodes去掉u，直接指向新地址即可
+            nodes = rest  # nodes指向新的地址
+        return num_links
     '''
     用于从社区标签到分区的函数，
     eg: 
