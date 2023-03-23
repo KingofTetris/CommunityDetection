@@ -38,5 +38,5 @@ plt.xticks(x, labels=labels)
 # plt.legend()
 plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=4, frameon=False, fontsize=12)
 
-# plt.show()
-plt.savefig('sim_bdr_node_nmi.pdf',bbox_inches="tight")
+plt.show()
+# plt.savefig('sim_bdr_node_nmi.pdf',bbox_inches="tight")

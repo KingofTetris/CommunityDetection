@@ -206,7 +206,6 @@ def read_algorithm_community(filepath):
 if __name__ == '__main__':
     #read_LFR()
     fnamelist = ['karate','dolphins','football','polbooks','polblogs'] #这个顺序是按照节点数来的
-
     #异常在函数里面处理了，在这外面的for 不会出现异常 没必要try exception
     for fname in fnamelist:
         compute_metrics_real_network(fname)

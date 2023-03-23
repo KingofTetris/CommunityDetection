@@ -6,7 +6,7 @@ final community number:
 
 
 The best partition in cooperate loop:     
-itern = 2
+itern = 3
 
 
 The highest NMI value: 

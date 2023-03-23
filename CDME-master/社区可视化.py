@@ -25,7 +25,7 @@ with open("./dataset/football.dat") as f:
 # 定义每个社区的颜色和形状
 community_colors = {1: 'blue', 2: 'red', 3: 'green', 4: 'orange', 5: 'purple', 6: 'brown', 7: 'pink', 8: 'gray', 9: 'olive', 10: 'cyan', 11: 'magenta', 12: 'yellow'}
 
-node_shapes = {1: 'o', 2: '^', 3: 's', 4: 'p', 5: '*', 6: 'h', 7: 'H', 8: '+', 9: 'x', 10: 'D', 11: 'd', 12: 'v'}
+# node_shapes = {1: 'o', 2: '^', 3: 's', 4: 'p', 5: '*', 6: 'h', 7: 'H', 8: '+', 9: 'x', 10: 'D', 11: 'd', 12: 'v'}
 
 # 将同一个社区的节点尽量紧凑在一起形成堆
 pos = nx.spring_layout(G, seed=42)
@@ -33,7 +33,7 @@ pos = nx.spring_layout(G, seed=42)
 # 为不同的社区设置不同的颜色和形状，并绘制节点和边
 for community in set(node_to_community.values()):
     nodes_in_community = [node for node, comm in node_to_community.items() if comm == community]
-    nx.draw_networkx_nodes(G, pos, nodelist=nodes_in_community, node_color=community_colors[community], node_shape=node_shapes[community], node_size=150)
+    nx.draw_networkx_nodes(G, pos, nodelist=nodes_in_community, node_color=community_colors[community], node_size=150)
 nx.draw_networkx_edges(G, pos, alpha=0.5)
 
 # 给节点添加标签 不用标签

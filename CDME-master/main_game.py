@@ -8,6 +8,7 @@ import GTCD_jiarubuxianglinshequ
 import GTCD_修改亲密度计算公式v2
 import based_CDME_GTCD_test
 import based_CDME_GTCD_改成shuffle
+import based_CDME_GTCD_先合作再非合作
 
 if __name__ == '__main__':
 
@@ -16,7 +17,8 @@ if __name__ == '__main__':
     fnamelist = ["karate", "dolphins", 'football', 'polblogs', 'polbooks']
     # fnamelist = ['polblogs']
     #人工数据集
-    # fnamelist = ["10","20","30","40","50","60","70","80"]
+    # fnamelist = ["20","30","40","50","60","70","80"]
+    # fnamelist = ["10"]
     #处理类型 1真实
     datasetType = 1
     # 2人工
@@ -31,11 +33,14 @@ if __name__ == '__main__':
             if datasetType == 1:
                 datafile = dirpath + "/dataset/" + fname + '.dat'
             if datasetType == 2:
-                datafile = dirpath + "/dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + '/network.dat'
+                # datafile = dirpath + "/dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + '/network.dat'
+                datafile = dirpath + "/dataset/LFR/LFR5000_u10to80/LFR5000_u" + fname + '/network.dat'
             if os.path.isfile(datafile):
                 "Set up the graph list"
                 #当前版本
                 cur_graph = based_CDME_GTCD.non_overlap_game(datafile, fname)
+                # 先合作再非合作太慢了。效果上也没有提升
+                # cur_graph = based_CDME_GTCD_先合作再非合作.non_overlap_game(datafile, fname)
                 #改成随机遍历所有节点和上面的随机选择节点也没多大区别。纠正：是根本没区别
                 # cur_graph = based_CDME_GTCD_改成shuffle.non_overlap_game(datafile, fname)
                 # cur_graph = based_CDME_GTCD_test.non_overlap_game(datafile, fname)

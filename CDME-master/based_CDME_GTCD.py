@@ -13,8 +13,6 @@ import random
 
 #TODO 目前是非重叠版本
 class non_overlap_game:
-
-
     #构造函数
     def __init__(self, filepath='', fname = ''):
         '''
@@ -44,14 +42,18 @@ class non_overlap_game:
         set_v = set(self.G.neighbors(v))
         set_u = set(self.G.neighbors(u))
         comm_neighbors = set_v & set_u # u和v的公共邻居
-        #TODO
-        # # 但是AA指数对于直接连边的节点对亲密度居然是0，这个时候我们要特殊处理一下节点对有直接连边 但是没有公共邻居的情况
+        # #TODO 考虑到底要不要加上去
+        # # # 但是AA指数对于直接连边的节点对亲密度居然是0，这个时候我们要特殊处理一下节点对有直接连边 但是没有公共邻居的情况
         # if len(comm_neighbors) == 0 and self.G.edges(u,v) is not None:
-        #     #两者虽然没有公共邻居，但是直接连边的关系让亲密度也不会很低
-        #     #TODO 我们暂时让这个节点对的亲密度设为这条边的权重为两个节点的度数之和的一半
-        #     # 实验后看结果，这样处理了的区别是，dolphins NMI从0.48变大到0.51 但是其他数据集的NMI都变小，尤其karate直接小一半。
+        #     # self.specialedge_num = self.specialedge_num + 1
+        #     # print("这样的边有:" + str(self.specialedge_num) + "条")
+        #     # #两者虽然没有公共邻居，但是直接连边的关系让亲密度也不会很低
+        #     # #TODO 我们暂时让这个节点对的亲密度设为这条边的权重为两个节点的度数之和的一半
+        #     # # 实验后看结果，这样处理了的区别是，dolphins NMI从0.48变大到0.51 但是其他数据集的NMI都变小，尤其karate直接小一半。
         #     avg = (self.deg[u] + self.deg[v]) / 2
-        #     return[avg,avg]
+        #     # return[avg,avg]
+        #     #把这条边的权重设为度的一半，用1除以他们度的乘积衡量这条边的重要性
+        #     return[avg/(self.deg[u] * self.deg[v]),avg/(self.deg[u] * self.deg[v])]
 
         #AA指数
         AA_uv = 0.0
@@ -231,7 +233,22 @@ class non_overlap_game:
         return [HD * self.deg[u], HD * self.deg[v]]
     '''
 
-    #收益函数1
+    '''
+     # 只去计算在相邻社区c中的邻居节点的亲密度
+       for v in self.G.neighbors(u):
+           v_community = self.node_community[v]  # 节点v的社区标签
+           if (v_community == c): #如果v在社区c中，那么才会计算收益
+               list = self.simintimacy(u,v)
+               #暂时是非重叠，那community标签就一个 int型不能用len函数
+               # paysoff_u = paysoff_u + 1/2 * (list[0] / len(u_community) + list[1] / len(v_community)) * (u_community & v_community)
+               paysoff_u = paysoff_u + 1/2 * (list[0] + list[1]) * (u_community & v_community)
+       return paysoff_u
+    '''
+
+    #收益函数1  U(S_(-i),s_i )=∑_(a_ij=1)〖1/2(〖Intimacy〗_(j→i)/(|s_i|)+〖Intimacy〗_(i→j)/(|s_j|))〗|s_i⋂s_j|
+    # 现在问题是检测非重叠社区时，离开社区的效用是0，导致不会有社区选择离开当前社区
+    # 典型例子是football网络里面1个社区吞并了3个小社区。
+    # 单社区的时候这个utility = 1/2 (I(j->i)/1 + I(i->j)/1)*1 = 1/2 * (I(j->i) + I(i->j))
     def utility_function(self,u,c): # 节点u在社区c中的收益
        paysoff_u = 0
        #计算社区C中的所有节点与u的亲密度累加作为效用函数
@@ -241,50 +258,40 @@ class non_overlap_game:
                list = self.simintimacy(u,node)
                #现在就是简单的亲密度求和
                #后面可能要考虑一下改进效用函数
+               #简单求和简单来说就是让度越大的节点有越高比重，节点只要和那个度大的节点相连接，那么必然会对这个度大的邻居所在社区c产生较大亲密度
+               #但问题就在于节点u和这个度大的邻居仅仅只有一条连边，他的其他边连接的节点可能在别的社区，但它因为这个度很大的邻居被硬生生拉进去社区c
                paysoff_u = paysoff_u + 1/2 * (list[0] + list[1])
        return  paysoff_u
-       # 只去计算在相邻社区c中的邻居节点的亲密度
-       '''
-       for v in self.G.neighbors(u):
-           v_community = self.node_community[v]  # 节点v的社区标签
-           if (v_community == c): #如果v在社区c中，那么才会计算收益
-               list = self.simintimacy(u,v)
-               #暂时是非重叠，那community标签就一个 int型不能用len函数
-               # paysoff_u = paysoff_u + 1/2 * (list[0] / len(u_community) + list[1] / len(v_community)) * (u_community & v_community)
-               paysoff_u = paysoff_u + 1/2 * (list[0] + list[1]) * (u_community & v_community)
-       return paysoff_u
-       '''
 
 
     #收益函数2 明明看起来更复杂但这个收益函数比前面的要差
     #gain = 1/2m ∑(i,j) (Aijδ(i,j) - Intimacydidj/2m * |si ∩ sj|  δ(i,j)表示i.j是否有共同标签
     #loss = 1/2m (|si| - 1)
-    def utility_linear_function(self,u,c): # 节点u在社区c中的收益
-        gain_function = 0
-        for neigh in self.G.neighbors(u): #Aij = 1
-            community_neigh = self.node_community[neigh]
-            community_node = self.node_community[u]
-
-            deerta = 0
-            # δ(i,j)表示i.j是否有共同标签
-            if community_neigh != community_node:
-                deerta = 0
-            else:
-                deerta = 1
-            gain_function = 1/2 * self.edge_count * \
-                            (1 * deerta - \
-                            1/2 * (self.simintimacy(u,neigh)[0] + self.simintimacy(u,neigh)[1]) \
-                             * self.deg[u] * self.deg[neigh] / 2 * self.edge_count * 1 )
-                            # * (community_node & community_neigh) ) #正常是要取交集，但是这里单社区，直接数字1就行了
-
-        # loss_function = 1/ 2 * self.edge_count * (len(self.node_community[u]) - 1) # 目前做单社区，那不能用len函数，其实就是1 没有损失
-        loss_function = 0
-        utility = gain_function - loss_function
-        return utility
+    # def utility_function(self,u,c): # 节点u在社区c中的收益
+    #     gain_function = 0
+    #     for neigh in self.G.neighbors(u): #Aij = 1
+    #         community_neigh = self.node_community[neigh]
+    #         community_node = self.node_community[u]
+    #         deerta = 0
+    #         # δ(i,j)表示i.j是否有共同标签
+    #         if community_neigh != community_node:
+    #             deerta = 0
+    #         else:
+    #             deerta = 1
+    #         gain_function = gain_function + 1/2 * self.edge_count * \
+    #                         (1 * deerta - \
+    #                         1/2 * (self.simintimacy(u,neigh)[0] + self.simintimacy(u,neigh)[1]) \
+    #                          * self.deg[u] * self.deg[neigh] / 2 * self.edge_count * 1 )
+    #                         # * (community_node & community_neigh) ) #正常是要取交集，但是这里单社区，直接数字1就行了
+    #     # loss_function = 1/ 2 * self.edge_count * (len(self.node_community[u]) - 1) # 目前做单社区，那不能用len函数，其实就是1 没有损失
+    #     loss_function = 0
+    #     utility = gain_function - loss_function
+    #     return utility
     # 造图,并形成初始社区
 
     def store_graphlist(self, fname):
         # graph
+        self.specialedge_num = 0 #计算一下那些特殊边的数量，节点对没有共同邻居，但是有直接连边
         self.G = nx.Graph()
         self.input_node_community = defaultdict(int)
         # input a network
@@ -328,8 +335,10 @@ class non_overlap_game:
         self.utility_nodes = {node: 0 for node in self.G.nodes()}  # 初始每个节点初始收益都设为0
 
         # 记录是否还有节点的效用值在发生变化
+        # 当轮到某个节点进行博弈 而没发生改变的时候会修改为False
         #当这张表全部被修改成False的时候 就是局部纳什均衡
-        self.utility_list = {node: True for node in self.G.nodes()}  # 初始都设为True 默认有改变 当轮到某个节点进行博弈 而没发生改变的时候会修改为False
+        self.utility_list = {node: True for node in self.G.nodes()}  # 初始都设为True 默认都有改变自己策略的倾向
+
 
         # Compute the core groups 从这里开始是构造核心组，你可以看看要不要在这上面继续改造。
         # 其实可以，参考A Four-Stage Algorithm for Community Detection Based on Label Propagation and Game Theory in Social Networks
@@ -448,7 +457,8 @@ class non_overlap_game:
             f_true = open("dataset/" + fname + "_com.dat")
         #人工数据集
         if datasetType == 2:
-            f_true = open("dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + "/community.dat")
+            # f_true = open("dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + "/community.dat")
+            f_true = open("dataset/LFR/LFR5000_u10to80/LFR5000_u" + fname + "/community.dat")
 
         data = f_true.read()
         lines = data.split('\n') #用\n分割开每一行
@@ -485,6 +495,10 @@ class non_overlap_game:
         #比如parition = [[1,3,4,5,6],[8,54,33,12,44]] 里面一个[]就是一个社区
         #所以问题来了，你要把LA转化成partition才能直接用Q
         partition = self.Lables_to_Partition(LA) #LA是算法分区
+        # num = 0
+        # for item in partition:
+        #     num = num + len(item)
+        # print(num)
         Q = modularity(self.G,partition)
 
         nmilist.append(NMI)
@@ -517,22 +531,25 @@ class non_overlap_game:
                 else:
                     last_node = node #如果不一样就赋给last_node，继续记录下上一个节点是谁
                 #用于纳什均衡的参数，当nochangeNum == self.node_count的时候 就是均衡了
-                #TODO 每轮博弈都要重新归零来保证纳什均衡,但效果却比指定博弈次数要差。为什么？？
                 nochange_num = 0
                 # 尝试加入让效用函数最大的邻居社区
                 join = self.join_neigh_community(node)
-                # 尝试离开当前社区
+                # 尝试离开当前社区 现在是单社区，我们不允许节点没有社区，所以这个leave的效用只能是0
                 leave = self.leave_community(node)
                 # 开始比较三个动作之后效用函数的大小
                 if join[1] > leave:
                     self.node_community[node] = join[0]  # 加入这个邻居社区  #TODO 原来会越来越好，原来玄机在这里，后面的博弈都是在前面的基础上，前面已经让这些节点加入了大概率会更好的社区 所以后面的博弈效果都很好
                     self.utility_nodes[node] = join[1]
-                    self.utility_list[node] = True  # 记录为True，节点的社区变化了
+                    for key in self.utility_list.keys(): #只要有一个节点发生改变，就要全部重新设为True进行博弈
+                        self.utility_list[key] = True
+                    # self.utility_list[node] = True  # 记录为True，节点的社区变化了
                 elif leave > join[1]:  # 这个条件单社区其实是不会发生的
                     print("我真的不会发生")
                     self.node_community[node] = self.node_count + 1
                     self.utility_nodes[node] = leave
-                    self.utility_list[node] = True  # 记录为True，节点的社区变化了
+                    for key in self.utility_list.keys(): #只要有一个节点发生改变，就要全部重新设为True进行博弈
+                        self.utility_list[key] = True
+                    # self.utility_list[node] = True  # 记录为True，节点的社区变化了
                 # 第三个if其实就是等于，那什么都不做 do nothing
                 else:
                     self.utility_list[node] = False  # False，啥也没干
@@ -610,9 +627,11 @@ class non_overlap_game:
             #分区文件写到fname_partition.txt里面
             f1 = open(outdirpath + "/" + fname + "_partition.txt","w+")
         if datasetType == 2:
-            f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result.txt", "w+")
+            # f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result.txt", "w+")
+            f = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result.txt", "w+")
             # 分区文件写到fname_partition.txt里面
-            f1 = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result_partition.txt", "w+")
+            # f1 = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result_partition.txt", "w+")
+            f1 = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result_partition.txt", "w+")
         # print(self.graph_result)
         for keys,values in self.graph_result.items():
             f1.write(str(values).strip('[').strip(']'))
@@ -715,16 +734,18 @@ class non_overlap_game:
                         for node in partition[key]:
                             self.node_community[node] = community
                         #然后计算效用值
-                        new_key_utility = self.coaliation_utility({key: union})
-                        new_com_utility = self.coaliation_utility({community: union})
+                        union_utility = self.coaliation_utility({community: union})
                         #因为只是为了计算模拟的效用值，并不一定会真的合并，所以算完记得改回来
                         for node in partition[key]:
                             self.node_community[node] = key
-                        #如果合作的效用，比原来各自的效用大
-                        if new_key_utility[key] > all_coaliation_utility[key] and new_com_utility[community] > all_coaliation_utility[community]:
+                        # 如果合作的效用，比原来各自的效用大，这个条件太苛刻，在非博弈合作以后比较难以实现
+                        # 这个条件只有polblogs里面生效，提升了0.01 其他数据集都没什么效果
+                        # if union_utility[community] > all_coaliation_utility[key] and union_utility[community] > all_coaliation_utility[community]:
+                        # 修改条件为，如果合作后，两个社区的效用改变之和是提升的，那就合并
+                        if (union_utility[community] - all_coaliation_utility[key]) + (union_utility[community] - all_coaliation_utility[community]) > 0:
                             #不能一变大就修改，要找那个合并后收益最大的社区
                             #所有只能暂时先记录下变化值
-                            deta_x = new_key_utility[key] - all_coaliation_utility[key] + new_com_utility[community] - all_coaliation_utility[community]
+                            deta_x = union_utility[community] - all_coaliation_utility[key] + union_utility[community] - all_coaliation_utility[community]
                             if deta_x > max_deta_x:
                                max_deta_x = deta_x
                                best = key #记录最佳合并社区
@@ -813,9 +834,11 @@ class non_overlap_game:
             # 分区文件写到fname_partition.txt里面
             f1 = open(outdirpath + "/" + fname + "_cooper_partition.txt", "w")
         if datasetType == 2:
-            f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_cooper_result.txt", "w")
+            # f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_cooper_result.txt", "w")
+            f = open(outdirpath + "/LFR_LFR5000/u" + fname + "_cooper_result.txt", "w")
             # 分区文件写到fname_partition.txt里面
-            f1 = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result_cooper_partition.txt", "w")
+            # f1 = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result_cooper_partition.txt", "w")
+            f1 = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result_cooper_partition.txt", "w")
             # print(self.graph_result)
         for keys, values in self.graph_result.items():
             f1.write(str(values).strip('[').strip(']'))
@@ -851,15 +874,6 @@ class non_overlap_game:
     三个动作，离开当前社区，切换到邻居社区，留在当前社区
     返回值是进行动作后的收益
     '''
-    # # 离开当前社区
-    # def leave_community(self, node):
-    #     #尝试离开社区，也就是让自己是一个社区，得弄一个新社区编号，不能和原来的重复，这怎么命名？
-    #     #不能是他自己编号的原因是，他可能是个核心节点，自己的编号已经被使用了。
-    #     # self.node_community.values()
-    #     #关键是现在是单社区，你leave以后 单独一个社区的收益是0，你随便加入一个社区的收益至少是>=0，那它肯定不会离开当前社区
-    #     #暂时编号为n+1，肯定不会重复
-    #     utility_leave = self.utility_function(node,self.node_count + 1)
-    #     return utility_leave
 
     # 离开当前社区
     def leave_community(self, node):
@@ -867,6 +881,7 @@ class non_overlap_game:
         community_ids = set(self.node_community.values())
         # 随机生成一个不在社区编号集合中的新编号
         new_community_id = max(community_ids) + 1 if community_ids else 0
+        #如果新生成的id在社区编号中 就给他加1
         while new_community_id in community_ids:
             new_community_id += 1
         # 计算离开当前社区后的收益
@@ -911,22 +926,25 @@ class non_overlap_game:
     #TODO 更新成上面那个还是一点效果没有，合作博弈要怎么加进来？？
     def coaliation_utility(self,partition):
         coaliation_utility = {}
-        for key in partition.keys():
-            s_degree_sum = self.s_degree_sum(key,partition) #当前社区的总度，把partition也传进去，避免遍历整个网络。
-            # e_S = self.s_link_number(key,partition) #计算社区s内的边数量
-            s_per = 0.0 #内在度
-            for node in partition[key]:
-                # 计算每个社区节点的内在度之和
-                s_per = s_per + self.per(node,self.node_community[node])
-            # Q(S)= e(S)/D(S) - (D(S)/2|E|)^2 前面是内聚性程度，后面是惩罚项，合并成一个社区时惩罚最大，但其实4E^2是个固定常数，根本没什么计算的价值。
-            # 其实这个Q(S)就是仿照模块度。很无语，所以你的合作博弈函数用这个，那目的就变成了提高模块度。
-            s_utility = (s_per / s_degree_sum) - (s_degree_sum / (2 * self.edge_count))**2
-            # s_utility = (e_S / s_degree_sum) - (s_degree_sum / (2 * self.edge_count))**2
-            # 模块度原公式 e(S)/|E| - (D(S)/2|E|)^2
-            # s_utility = (s_per / self.edge_count) - (s_degree_sum / (2 * self.edge_count))**2
-            coaliation_utility[key] = s_utility
+        # for key in partition.keys():
+        #     s_degree_sum = self.s_degree_sum(key,partition) #当前社区的总度，把partition也传进去，避免遍历整个网络。
+        #     e_S = self.s_in_link_number(key,partition) #计算社区s内的边数量
+        #     # s_per = 0.0 #内在度
+        #     # for node in partition[key]:
+        #     #     # 计算每个社区节点的内在度之和
+        #     #     s_per = s_per + self.per(node,self.node_community[node])
+        #     # Q(S)= e(S)/D(S) - (D(S)/2|E|)^2 这个就是模块度公式把前面内聚性的分母从E改成了D(S)，前面是内聚性程度，后面是惩罚项，合并成一个社区时惩罚最大，但其实4E^2是个固定常数，根本没什么计算的价值。
+        #     # 其实这个Q(S)就是仿照模块度。很无语，所以你的合作博弈函数用这个，那目的就变成了提高模块度。
+        #     # s_utility = (s_per / s_degree_sum) - (s_degree_sum / (2 * self.edge_count))**2
+        #     s_utility = (e_S / s_degree_sum) - (s_degree_sum / (2 * self.edge_count))**2
+        #     # 模块度原公式 e(S)/|E| - (D(S)/2|E|)^2
+        #     # s_utility = (e_S / self.edge_count) - (s_degree_sum / (2 * self.edge_count))**2
+        #     coaliation_utility[key] = s_utility
 
-        # 这个合作是有合作，但是是在瞎合作，把原来应该分开的社区给合到了一起
+
+        # v(S) = 0 |S| = 1
+        #      =  ∑ per(i,S)/deg(i) |S|>=2 deg(i)!=0
+        # 这个合作是有合作，但是大多时候是在瞎合作，把原来应该分开的社区给合到了一起
         # for key in partition.keys():
         #     # 如果是单个社区的集合,则没有意义，设置为0
         #     if len(partition[key]) == 1:
@@ -939,6 +957,26 @@ class non_overlap_game:
         #             sum = sum + ( 2 * self.per(node, self.node_community[node]) / self.deg[node] - 1)
         #         coaliation_utility[key] = sum
 
+        '''
+        或者按照2014_一种基于合作博弈的社区检测算法
+        Pout>=Pin的时候说明这个社区不合理，让这个社区与Pout最大的社区进行合并
+        根据这个思路，我们让收益函数为Pin - Pout，如果两者都能更大，则进行合并。
+        但问题在于这样简单的设计会让所有社区都合并在一起，最好Pin就是D（G）,Pout=0
+        所以还应该加上一个合并的惩罚项，避免过度合并
+        v(S) = (Pin - Pout)/Pin - (Pin/|E|)^2
+        这样当所有节点合并在一起的时候 v(S)的值就是 1 - 1 = 0
+        
+        现在问题是用这个效用函数就需要把合作的条件：合作后两者的效用都要不少于合作前的效用
+        但问题就在于非合作博弈以后形成的社区都有较强的内聚性，这些社区不愿意在没有提升，甚至是会使自身效用降低的情况下去合作帮助别的社区提升效用值
+        
+        如果把合作的条件削弱，改成：合作后两者效用值的变化量大于0，则doplhin网络可以从0.6759提升到0.8888
+        '''
+        for key in partition.keys():
+            in_nums = self.s_in_link_number(key,partition)
+            out_nums = self.s_out_link_number(key,partition)
+            diff = in_nums - out_nums
+            v_S = (diff / in_nums) -  ( in_nums / self.edge_count) ** 2
+            coaliation_utility[key] = v_S
         return coaliation_utility
 
     # The internal degree of node v in a community
@@ -969,20 +1007,38 @@ class non_overlap_game:
 
     '''
     计算社区s内的连边数量，不是内在度之和！
+    
+    这里又要小心处理一下，不知道为什么polblogs数据集把1259分成了自己一个社区，可能是1260是一个环，内聚性强和别人玩不到一起
+    那么partition只有一个节点是一个社区的话，就得特殊处理了
     '''
-
-    def s_link_number(self, s, partition):
+    def s_in_link_number(self, s, partition):
+        #如果是特殊情况 直接返回那个节点的度
+        if(len(partition[s]) == 1):
+            return self.deg[partition[s][0]]
         nodes = partition[s]  # get the nodes in community s
         num_links = 0  # initialize the number of links to zero
         for u in nodes:
             rest = set(nodes)  # make a copy of the set
             rest.remove(u)  # remove u from the set
             for v in rest:
-                if self.G.edges(u,v) is not None:  # check if there is an edge between node i and node j
+                if self.G.has_edge(u,v):  # 不能用is not None，因为直接用edge(u,v)来判断是否有边，会返回True/False 都不是None 就会+1
                     num_links += 1  # increment the number of links
             #遍历完u节点后，nodes去掉u，直接指向新地址即可
             nodes = rest  # nodes指向新的地址
         return num_links
+
+    '''
+    社区外边数Pout
+    实际上Pout = D(S) - ∑ per(i,S)=总度 - 内在度之和
+    '''
+    def s_out_link_number(self, s, partition):
+        D_S = self.s_degree_sum(s,partition)
+        per_S = 0
+        for node in partition[s]:
+            per_S = per_S + self.per(node,s)
+        out_link_nums = D_S - per_S
+        return out_link_nums
+
     '''
     用于从社区标签到分区的函数，
     eg: 
