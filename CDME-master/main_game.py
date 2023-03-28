@@ -9,13 +9,12 @@ import GTCD_修改亲密度计算公式v2
 import based_CDME_GTCD_test
 import based_CDME_GTCD_改成shuffle
 import based_CDME_GTCD_先合作再非合作
-
+import based_CDME_GTCD_overlapping
 if __name__ == '__main__':
-
     # "Input: a dataset name "
     #真实数据集
     fnamelist = ["karate", "dolphins", 'football', 'polblogs', 'polbooks']
-    # fnamelist = ['polblogs']
+    # fnamelist = ['karate']
     #人工数据集
     # fnamelist = ["20","30","40","50","60","70","80"]
     # fnamelist = ["10"]
@@ -39,6 +38,7 @@ if __name__ == '__main__':
                 "Set up the graph list"
                 #当前版本
                 cur_graph = based_CDME_GTCD.non_overlap_game(datafile, fname)
+                # cur_graph = based_CDME_GTCD_overlapping.overlap_game(datafile,fname)
                 # 先合作再非合作太慢了。效果上也没有提升
                 # cur_graph = based_CDME_GTCD_先合作再非合作.non_overlap_game(datafile, fname)
                 #改成随机遍历所有节点和上面的随机选择节点也没多大区别。纠正：是根本没区别

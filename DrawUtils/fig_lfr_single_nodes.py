@@ -1,3 +1,5 @@
+#国哥写的
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -44,6 +46,8 @@ plt.show()
 
 #下面是GPT画的
 '''
+
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -84,3 +88,40 @@ fig.suptitle('LFR Benchmark', fontsize=18)
 plt.tight_layout()
 plt.show()
 '''
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Data
+x = ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9']
+labels = ['SSCF', 'LRSCD', 'GBDR', 'SBDR']
+colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+linestyles = ['-', '--', ':', '-.']
+data = [[100, 96, 93, 80, 55, 30, 18, 14, 12],
+        [100, 99, 98, 92, 60, 36, 20, 16, 15],
+        [100, 100, 98, 92, 70, 40, 24, 18, 16],
+        [100, 100, 98, 92, 70, 40, 23, 18, 17]]
+for i in range(len(data)):
+    for j in range(len(data[i])):
+        data[i][j] /= 100
+
+# Plot
+fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
+for i in range(len(labels)):
+    ax.plot(x, data[i], label=labels[i], color=colors[i], linestyle=linestyles[i])
+
+# Style
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.tick_params(axis='both', direction='in', length=4, width=1, labelsize=12)
+ax.yaxis.grid(ls='--', alpha=0.7)
+ax.set_ylim(0, 1.1)
+ax.set_yticks(np.arange(0, 1.1, 0.1))
+ax.legend(labels=labels, bbox_to_anchor=(0.02, 1.02), loc='lower left', ncol=2, frameon=False, fontsize=12)
+
+# Labels
+ax.set_xlabel('Overlap Ratio', fontsize=14, labelpad=10)
+ax.set_ylabel('Normalized Mutual Information', fontsize=14, labelpad=10)
+fig.suptitle('LFR Benchmark', fontsize=18)
+
+plt.tight_layout()
+plt.show()
