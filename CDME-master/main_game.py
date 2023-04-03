@@ -16,7 +16,7 @@ if __name__ == '__main__':
     fnamelist = ["karate", "dolphins", 'football', 'polblogs', 'polbooks']
     # fnamelist = ['karate']
     #人工数据集
-    # fnamelist = ["20","30","40","50","60","70","80"]
+    # fnamelist = ["10","20","30","40","50","60","70","80"]
     # fnamelist = ["10"]
     #处理类型 1真实
     datasetType = 1
@@ -24,6 +24,7 @@ if __name__ == '__main__':
     # datasetType = 2
     for fname in fnamelist:
         dirpath = '.'
+        nodenum = 10000
         if os.path.isdir(dirpath):
             "Set a output folder"
             outdirpath = dirpath + "/output"
@@ -33,7 +34,7 @@ if __name__ == '__main__':
                 datafile = dirpath + "/dataset/" + fname + '.dat'
             if datasetType == 2:
                 # datafile = dirpath + "/dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + '/network.dat'
-                datafile = dirpath + "/dataset/LFR/LFR5000_u10to80/LFR5000_u" + fname + '/network.dat'
+                datafile = dirpath + "/dataset/LFR/LFR10000_u10to80/LFR10000_u" + fname + '/network.dat'
             if os.path.isfile(datafile):
                 "Set up the graph list"
                 #当前版本
@@ -66,7 +67,8 @@ if __name__ == '__main__':
                 if datasetType == 1:
                     f = open(outdirpath + "/" + fname + ".txt", "a")
                 if datasetType == 2:
-                    f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result.txt", "a")
+                    # f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result.txt", "a")
+                    f = open(outdirpath + "/LFR_LFR10000/u" + fname + "_result.txt", "a")
 
                 f.write("\n\n")
                 f.write("runtime:  \n")

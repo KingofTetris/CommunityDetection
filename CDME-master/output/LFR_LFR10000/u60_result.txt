@@ -1,5 +1,5 @@
 community number:  
-3
+1523
 
 
 loop number:  
@@ -7,31 +7,28 @@ loop number:
 
 
 The best partition in loop:     
-itern = 1
+itern = 0
 
 
 The highest NMI value: 
-0.6759018735356751
+0.609481189616946
 
 
 The highest ARI value: 
-0.5804704972338529
+0.0
 
 
 The highest Q value: 
-0.4805980776076896
+0.0
 
 
 All NMI values: 
-[0.42914959535536706, 0.6759018735356751]
+[0.609481189616946, 0.0]
 
 
 All ARI values:     
-[0.19928712560813777, 0.5804704972338529]
+[0.1736732293741025, 0.0]
 
 
 All Q values:     
-[0.3936157588702978, 0.4805980776076896]
-
-runtime:  
-0 s
+[0.1147945735884243, 0.0]
