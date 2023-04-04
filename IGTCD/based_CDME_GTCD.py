@@ -413,14 +413,12 @@ class non_overlap_game:
                         # len_neigh = len(intersection)
                         # #然后计算双向亲密度
                         # nodesimdeg = (len_neigh / self.deg[neig] + len_neigh / self.deg[node]) * (nodesim_u_v + nodesim_v_u)
-
                         # 如果和这个邻居节点算出来的节点吸引力，比之前的都要大就更新
                         if nodesimdeg > maxsimdeg:
                             selected = neig  # 要选择的节点
                             maxsimdeg = nodesimdeg  # 更新最大值
-
-                        # 让当前节点加入根据亲密度选中节点selected的社区。
-                        self.node_community[node] = self.node_community[selected]
+                    # 让当前节点加入根据亲密度选中节点selected的社区。
+                    self.node_community[node] = self.node_community[selected]
 
         # 有了核心组以后现在可以计算每个节点的初始收益了
         for node in self.G.nodes():
@@ -438,7 +436,7 @@ class non_overlap_game:
         max_ARI = -2.0
         max_Q = -2.0
 
-        maxit = 10  # 设置迭代次数为5 你当然可以设为10
+        maxit = 1  # 设置迭代次数为5 你当然可以设为10
         itern = 0 # 当前迭代回合
 
         largest_NMI_itern = 0  # 取得最大NMI的回合
@@ -458,7 +456,8 @@ class non_overlap_game:
         #人工数据集
         if datasetType == 2:
             # f_true = open("dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + "/community.dat")
-            f_true = open("dataset/LFR/LFR5000_u10to80/LFR5000_u" + fname + "/community.dat")
+            # f_true = open("dataset/LFR/LFR5000_u10to80/LFR5000_u" + fname + "/community.dat")
+            f_true = open("dataset/LFR/LFR10000_u10to80/LFR10000_u" + fname + "/community.dat")
 
         data = f_true.read()
         lines = data.split('\n') #用\n分割开每一行
@@ -576,9 +575,10 @@ class non_overlap_game:
                 #上面的纳什均衡绝对是存在问题的，所以暴力点，博弈5N次停下来，至少效果不会差太多
                 nums = nums + 1 #博弈的次数
                 # 其实每次都博弈2次，然后后面再根据前面的基础继续博弈，试了一下基本上博弈数在12倍节点数就可以达到博弈最优
-                if (nums == (5 * self.node_count)):
+                # 一万个节点 大概要30倍才能跑到均衡，修改maxit为1次
+                if (nums == (30 * self.node_count)):
                     isChange = False  # 所有节点都不改变了才是False
-                    print("我是博弈次数到节点的5倍就停下来的")
+                    print("我是博弈次数到节点的30倍就停下来的")
 
             newLA = [self.node_community[k] for k in self.input_node_community.keys()]
             # print("非合作博弈后newLA:" + str(newLA))
@@ -628,10 +628,12 @@ class non_overlap_game:
             f1 = open(outdirpath + "/" + fname + "_partition.txt","w+")
         if datasetType == 2:
             # f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result.txt", "w+")
-            f = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result.txt", "w+")
+            # f = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result.txt", "w+")
+            f = open(outdirpath + "/LFR_LFR10000/u" + fname + "_result.txt", "w+")
             # 分区文件写到fname_partition.txt里面
             # f1 = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result_partition.txt", "w+")
-            f1 = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result_partition.txt", "w+")
+            # f1 = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result_partition.txt", "w+")
+            f1 = open(outdirpath + "/LFR_LFR10000/u" + fname + "_result_partition.txt", "w+")
         # print(self.graph_result)
         for keys,values in self.graph_result.items():
             f1.write(str(values).strip('[').strip(']'))
@@ -664,8 +666,9 @@ class non_overlap_game:
         f.write(str(Qlist))
         f.close()
 
+
         '''
-        从下面开始加入合作博弈部分
+        #从下面开始加入合作博弈部分
         '''
         print("--------------------------------------------------------------------------------------")
         #把之前非合作的度量清理一下
@@ -673,7 +676,7 @@ class non_overlap_game:
         arilist.clear()
         Qlist.clear()
         '''
-        社区的停止标记有点麻烦不能像节点一样所有节点都不在变化了就可以停止了
+        #社区的停止标记有点麻烦不能像节点一样所有节点都不在变化了就可以停止了
         '''
         #用于停止的标记
         # self.alliance_change_dict = {key: False for key in self.graph_result.keys()}  # 初始都设为False 即没有变化
@@ -827,7 +830,7 @@ class non_overlap_game:
         # print(self.graph_result)
         #从这里开始loop循环结束
         '''
-        开始写文件
+        #开始写文件
         '''
         if datasetType == 1:
             f = open(outdirpath + "/" + fname + "_cooper_result.txt", "w")
@@ -835,10 +838,12 @@ class non_overlap_game:
             f1 = open(outdirpath + "/" + fname + "_cooper_partition.txt", "w")
         if datasetType == 2:
             # f = open(outdirpath + "/LFR_LFR1000/u" + fname + "_cooper_result.txt", "w")
-            f = open(outdirpath + "/LFR_LFR5000/u" + fname + "_cooper_result.txt", "w")
+            # f = open(outdirpath + "/LFR_LFR5000/u" + fname + "_cooper_result.txt", "w")
+            f = open(outdirpath + "/LFR_LFR10000/u" + fname + "_cooper_result.txt", "w")
             # 分区文件写到fname_partition.txt里面
             # f1 = open(outdirpath + "/LFR_LFR1000/u" + fname + "_result_cooper_partition.txt", "w")
-            f1 = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result_cooper_partition.txt", "w")
+            # f1 = open(outdirpath + "/LFR_LFR5000/u" + fname + "_result_cooper_partition.txt", "w")
+            f1 = open(outdirpath + "/LFR_LFR10000/u" + fname + "_result_cooper_partition.txt", "w")
             # print(self.graph_result)
         for keys, values in self.graph_result.items():
             f1.write(str(values).strip('[').strip(']'))
@@ -868,7 +873,6 @@ class non_overlap_game:
         f.write("All Q values:     \n")
         f.write(str(Qlist))
         f.close()
-
 
     '''
     三个动作，离开当前社区，切换到邻居社区，留在当前社区

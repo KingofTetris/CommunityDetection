@@ -1,8 +1,8 @@
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 
 # plt.style.use(['science', 'no-latex'])
-
 x = ['100', '200', '400', '600', '800', '1000']
 labels = ['SSCF', 'LRSCD', 'GBDR', 'SBDR']
 colors = ['red', 'orange', 'blue', 'green', 'hotpink', 'turquoise', 'saddlebrown', 'yellowgreen', 'deepskyblue',
@@ -43,3 +43,35 @@ plt.tight_layout()
 plt.show()
 # plt.savefig('lfr_time.png', dpi=750)
 # plt.savefig('lfr_time.pdf')
+'''
+import numpy as np
+import matplotlib.pyplot as plt
+
+# plt.style.use('seaborn-darkgrid')
+
+x = ['100', '200', '400', '600', '800', '1000']
+labels = ['SSCF', 'LRSCD', 'GBDR', 'SBDR']
+colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+marks = ['o', 's', '^', 'D']
+linestyles = ['-', '--', '-.', ':']
+
+data = [[27, 73, 548, 1445, 3055, 5644],
+        [33, 81, 449, 1278, 2632, 4805],
+        [74, 140, 717, 1834, 3405, 5822],
+        [54, 110, 418, 912, 1333, 1830]]
+
+assert (len(labels) == len(data))
+for i in range(len(labels)):
+    plt.plot(x, data[i], label=labels[i], marker=marks[i], markersize=7, color=colors[i], linestyle=linestyles[i], linewidth=1.5)
+
+plt.xlabel('Number of nodes', fontsize=14)
+plt.ylabel('Time (s)', fontsize=14)
+plt.ylim(0, 6000)
+y_ticks = np.arange(0, 7000, 1000)
+plt.tick_params(direction='in', labelsize=12)
+
+plt.yticks(y_ticks)
+plt.legend(labels=labels, bbox_to_anchor=(0.25, 0.70), loc='lower right', fontsize=12)
+# plt.grid(True)
+plt.tight_layout()
+plt.show()
