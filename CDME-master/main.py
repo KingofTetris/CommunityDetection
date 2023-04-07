@@ -10,19 +10,17 @@ if __name__ == '__main__':
     # "Input: a dataset name "
 
     #fnamelist =['football']
-    fnamelist = ["karate", "dolphins", 'football', 'polbooks','polblogs']
-
+    # fnamelist = ["karate", "dolphins", 'football', 'polbooks','polblogs']
+    fnamelist = ["10", "20", "30", "40", "50", "60", "70", "80"]
     for fname in fnamelist:
-
-        dirpath = './'
-
+        dirpath = '.'
         if os.path.isdir(dirpath):
-
             "Set a output folder"
             outdirpath = dirpath + "/output"
             if not os.path.isdir(outdirpath):
                 os.mkdir(outdirpath)           
-            datafile = dirpath+"/dataset/"+fname+'.dat'
+            # datafile = dirpath+"/dataset/"+fname+'.dat' //真实
+            datafile = dirpath + "/dataset/LFR/LFR10000_u10to80_c100to300/LFR10000_u" + fname + '/network.dat'
             if os.path.isfile(datafile):
                 "Set up the graph list"               
                 cur_graph = CDME.non_overlap_cdme(datafile, fname)                

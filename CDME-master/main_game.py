@@ -13,15 +13,16 @@ import based_CDME_GTCD_overlapping
 if __name__ == '__main__':
     # "Input: a dataset name "
     #真实数据集
-    fnamelist = ["karate", "dolphins", 'football', 'polblogs', 'polbooks']
+    # fnamelist = ["karate", "dolphins", 'football', 'polblogs', 'polbooks']
+    # fnamelist = ["dolphins"]
     # fnamelist = ['karate']
     #人工数据集
-    # fnamelist = ["10","20","30","40","50","60","70","80"]
+    fnamelist = ["10","20","30","40","50","60","70","80"]
     # fnamelist = ["10"]
     #处理类型 1真实
-    datasetType = 1
+    # datasetType = 1
     # 2人工
-    # datasetType = 2
+    datasetType = 2
     for fname in fnamelist:
         dirpath = '.'
         nodenum = 10000
@@ -34,7 +35,7 @@ if __name__ == '__main__':
                 datafile = dirpath + "/dataset/" + fname + '.dat'
             if datasetType == 2:
                 # datafile = dirpath + "/dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + '/network.dat'
-                datafile = dirpath + "/dataset/LFR/LFR10000_u10to80/LFR10000_u" + fname + '/network.dat'
+                datafile = dirpath + "/dataset/LFR/LFR10000_u10to80_c100to300/LFR10000_u" + fname + '/network.dat'
             if os.path.isfile(datafile):
                 "Set up the graph list"
                 #当前版本

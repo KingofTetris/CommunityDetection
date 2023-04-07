@@ -340,6 +340,9 @@ class non_overlap_game:
         self.utility_list = {node: True for node in self.G.nodes()}  # 初始都设为True 默认都有改变自己策略的倾向
 
 
+        #这张表是用来记录节点变化记录的，看看是不是真的来回震荡的就那几个节点。
+        self.node_strategy_changetime  = {node: 0 for node in self.G.nodes()}
+
         # Compute the core groups 从这里开始是构造核心组，你可以看看要不要在这上面继续改造。
         # 其实可以，参考A Four-Stage Algorithm for Community Detection Based on Label Propagation and Game Theory in Social Networks
         # 一开始快速形成一个初始社区有助于加速
@@ -457,7 +460,7 @@ class non_overlap_game:
         if datasetType == 2:
             # f_true = open("dataset/LFR/LFR1000_u10to80/LFR1000_u" + fname + "/community.dat")
             # f_true = open("dataset/LFR/LFR5000_u10to80/LFR5000_u" + fname + "/community.dat")
-            f_true = open("dataset/LFR/LFR10000_u10to80/LFR10000_u" + fname + "/community.dat")
+            f_true = open("dataset/LFR/LFR10000_u10to80_c100to300/LFR10000_u" + fname + "/community.dat")
 
         data = f_true.read()
         lines = data.split('\n') #用\n分割开每一行
@@ -533,22 +536,25 @@ class non_overlap_game:
                 nochange_num = 0
                 # 尝试加入让效用函数最大的邻居社区
                 join = self.join_neigh_community(node)
-                # 尝试离开当前社区 现在是单社区，我们不允许节点没有社区，所以这个leave的效用只能是0
-                leave = self.leave_community(node)
+                # 尝试离开当前社区 现在是单社区，我们不允许节点没有社区，所以这个leave的效用只能是0，所以就不浪费时间去算了
+                # leave = self.leave_community(node)
+                leave = 0
                 # 开始比较三个动作之后效用函数的大小
                 if join[1] > leave:
                     self.node_community[node] = join[0]  # 加入这个邻居社区  #TODO 原来会越来越好，原来玄机在这里，后面的博弈都是在前面的基础上，前面已经让这些节点加入了大概率会更好的社区 所以后面的博弈效果都很好
                     self.utility_nodes[node] = join[1]
+                    #变化一次就+1
+                    self.node_strategy_changetime[node] = self.node_strategy_changetime[node] + 1
                     for key in self.utility_list.keys(): #只要有一个节点发生改变，就要全部重新设为True进行博弈
                         self.utility_list[key] = True
                     # self.utility_list[node] = True  # 记录为True，节点的社区变化了
+                #TODO 单社区并没有离开操作，只有切换操作。
                 elif leave > join[1]:  # 这个条件单社区其实是不会发生的
                     print("我真的不会发生")
                     self.node_community[node] = self.node_count + 1
                     self.utility_nodes[node] = leave
                     for key in self.utility_list.keys(): #只要有一个节点发生改变，就要全部重新设为True进行博弈
                         self.utility_list[key] = True
-                    # self.utility_list[node] = True  # 记录为True，节点的社区变化了
                 # 第三个if其实就是等于，那什么都不做 do nothing
                 else:
                     self.utility_list[node] = False  # False，啥也没干
@@ -576,9 +582,19 @@ class non_overlap_game:
                 nums = nums + 1 #博弈的次数
                 # 其实每次都博弈2次，然后后面再根据前面的基础继续博弈，试了一下基本上博弈数在12倍节点数就可以达到博弈最优
                 # 一万个节点 大概要30倍才能跑到均衡，修改maxit为1次
-                if (nums == (30 * self.node_count)):
+                # 傻逼博弈，这样跑要贼TM久。
+                if (nums == (5 * self.node_count)):
                     isChange = False  # 所有节点都不改变了才是False
-                    print("我是博弈次数到节点的30倍就停下来的")
+                    print("我是博弈次数到节点的2倍就停下来的")
+
+            print(self.node_strategy_changetime)
+            total_change = 0
+
+            for key,value in self.node_strategy_changetime.items():
+                if value > 0:
+                    total_change = value + total_change
+
+
 
             newLA = [self.node_community[k] for k in self.input_node_community.keys()]
             # print("非合作博弈后newLA:" + str(newLA))
@@ -720,7 +736,7 @@ class non_overlap_game:
                 else:
                     last_community = community  # 如果不一样就赋给last_community，继续记录下上一个社区是谁
                 #每次比较完partition可能都会变，所以要把最大比较次数放里面
-                max_compare_number = math.comb(len(partition.keys()), 2)  # 最大博弈次数Cn2
+                max_compare_number = math.comb(len(partition.keys()), 2)  # 最大比较次数Cn2
                 # 找最佳合并社区
                 #字典迭代的时候不能改变字典的大小
                 #只能记录下要删除的Key 迭代完以后更改字典大小。
@@ -728,6 +744,20 @@ class non_overlap_game:
                 flag = False # 用于记录是否真的能改变的标记
                 for key in partition.keys():
                     # print("partition.keys()长度的变化情况"+str(len(partition.keys())) + "具体是:" + str(partition.keys()) )
+                    # 这样比较的话,compare_number其实最大是 n*(n-1)，就是每个社区都和其他社区进行比较。而不是C(n,2)选过的社区就不再选了。
+                    # 但问题就是这个，合作博弈过程中社区数量会减少，相同的社区号，但是社区内容可能已经不一样了，
+                    # 这就导致每次博弈一定要让当前选择社区和所有其他社区都进行一次尝试合并才行。
+                    # 换句话说就是博弈次数一定是 ∑n*(n-1) (n是每回合的社区数,至于要迭代多少回合，那得一直到没有两个社区能够合并为止，这个条件太慢了)
+                    # 现在的停止条件是当前回合的n*(n-1)如果大于等于C(n,2)，就提前停止
+                    # 但是其实这个条件是废话，n*(n-1) 一定大于等于 C(n,2)= n*(n-1)/2
+                    # 这个条件就相当于如果这个回合的迭代次数达到最大比较次数的一半的时候都没有发生合并的话，就提前停止合作博弈。
+                    # 所以加了个保险当发生合并了以后compare_number就要重新置为0，继续重复这个过程。
+
+                    # 但是问题就出现了 当非合作博弈形成的社区数非常多的时候(社区数接近节点数)
+                    # 合作博弈的时间复杂度是 O(T* N^2 * N^2) 可能会达到O(Tn^4)
+                    # 第一个n^2是比较次数，第二个n^2是计算尝试合并社区的效用
+                    # 这实在是太慢了，你要尝试剪枝啊。
+
                     if key != community: #如果当前选中的社区不一样
                         compare_number = compare_number + 1 #比较1次就加1
                         #取并集
@@ -770,7 +800,7 @@ class non_overlap_game:
                     partition.pop(best)
                     #4.partition要更新新社区
                     partition[community] = union
-                    #最后记得发生了合并，把compare重置
+                    #最后记得发生了合并，把compare重置为0，继续博弈，防止compare_number > max 就结束了。
                     compare_number = 0
                 #TODO 最后的问题是什么时候才能停止社区合并 现在while还没有停止条件
                 #暂时把博弈回合数设置成Cn2，也就是随机选择两个社区合并的组合数，如果超过这个博弈次数就中止
@@ -979,7 +1009,12 @@ class non_overlap_game:
             in_nums = self.s_in_link_number(key,partition)
             out_nums = self.s_out_link_number(key,partition)
             diff = in_nums - out_nums
-            v_S = (diff / in_nums) -  ( in_nums / self.edge_count) ** 2
+            #有的社区只有单个节点，那么他们的内在边数量就是0
+            #对于0应该另外设置一套v_S，在这里只是简单的用-(diff/E)^2
+            if in_nums == 0:
+                v_S = -(diff / self.edge_count) ** 2
+            else:
+                v_S = (diff / in_nums) -  ( in_nums / self.edge_count) ** 2
             coaliation_utility[key] = v_S
         return coaliation_utility
 
@@ -1016,16 +1051,18 @@ class non_overlap_game:
     那么partition只有一个节点是一个社区的话，就得特殊处理了
     '''
     def s_in_link_number(self, s, partition):
-        #如果是特殊情况 直接返回那个节点的度
+        #如果是特殊情况，社区只有，一个点，那么这个社区s内的连边数量为0
         if(len(partition[s]) == 1):
-            return self.deg[partition[s][0]]
+            return 0
+        #其他多个节点的社区
         nodes = partition[s]  # get the nodes in community s
         num_links = 0  # initialize the number of links to zero
-        for u in nodes:
+        for u in nodes: # 遍历社区s
             rest = set(nodes)  # make a copy of the set
             rest.remove(u)  # remove u from the set
+            #是不是要判定一下rest不为空才继续
             for v in rest:
-                if self.G.has_edge(u,v):  # 不能用is not None，因为直接用edge(u,v)来判断是否有边，会返回True/False 都不是None 就会+1
+                if self.G.has_edge(u,v):  # 不能用is not None，因为直接用edge(u,v)来判断是否有边，会返回True/False 都不是None 那么无论是否存在边都会+1
                     num_links += 1  # increment the number of links
             #遍历完u节点后，nodes去掉u，直接指向新地址即可
             nodes = rest  # nodes指向新的地址
