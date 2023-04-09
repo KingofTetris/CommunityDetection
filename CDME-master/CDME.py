@@ -104,7 +104,7 @@ class non_overlap_cdme:
         max_NMI = -2.0
         persum = old_persum + 1
         netw_per = old_netw_per + 0.1
-        maxit = 5
+        maxit = 1
         itern = 0
        
         largest_NMI_itern = 0
@@ -119,8 +119,9 @@ class non_overlap_cdme:
         # The groundtruth
         LB = []
         #Read the groundtruth communities
-        f_true = open("dataset/" + fname + "_com.dat")       
-        data = f_true.read()        
+        # f_true = open("dataset/" + fname + "_com.dat")       #真实
+        f_true = open("./dataset/LFR/LFR10000_u10to80_c100to300/LFR10000_u" + fname + "/community.dat") #人工
+        data = f_true.read()
         lines = data.split('\n')
         for line in lines:
             
@@ -221,7 +222,8 @@ class non_overlap_cdme:
             node_comm = int(self.node_community[item])
             self.graph_result[node_comm].append(item)
 
-        f = open(outdirpath + "/" + fname + ".txt", "w+")
+        # f = open(outdirpath + "/" + fname + ".txt", "w+") #真实
+        f = open(outdirpath + "/LFR10000_u" + fname + ".txt", "w+") #人工
         f.write("community number:  \n")
         f.write(str(len(self.graph_result.keys())))
         f.write("\n\n\n\n")
