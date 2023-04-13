@@ -10,19 +10,20 @@ import based_CDME_GTCD_test
 import based_CDME_GTCD_改成shuffle
 import based_CDME_GTCD_先合作再非合作
 import based_CDME_GTCD_overlapping
+import based_CDME_GTCD_0412
 if __name__ == '__main__':
     # "Input: a dataset name "
     #真实数据集
-    # fnamelist = ["karate", "dolphins", 'football', 'polblogs', 'polbooks']
-    # fnamelist = ["dolphins"]
+    fnamelist = ["karate", "dolphins", 'football', 'polblogs', 'polbooks']
+    # fnamelist = ["football"]
     # fnamelist = ['karate']
     #人工数据集
-    fnamelist = ["10","20","30","40","50","60","70","80"]
+    # fnamelist = ["10","20","30","40","50","60","70","80"]
     # fnamelist = ["10"]
     #处理类型 1真实
-    # datasetType = 1
+    datasetType = 1
     # 2人工
-    datasetType = 2
+    # datasetType = 2
     for fname in fnamelist:
         dirpath = '.'
         nodenum = 10000
@@ -39,7 +40,8 @@ if __name__ == '__main__':
             if os.path.isfile(datafile):
                 "Set up the graph list"
                 #当前版本
-                cur_graph = based_CDME_GTCD.non_overlap_game(datafile, fname)
+                # cur_graph = based_CDME_GTCD.non_overlap_game(datafile, fname)
+                cur_graph = based_CDME_GTCD_0412.non_overlap_game(datafile, fname)
                 # cur_graph = based_CDME_GTCD_overlapping.overlap_game(datafile,fname)
                 # 先合作再非合作太慢了。效果上也没有提升
                 # cur_graph = based_CDME_GTCD_先合作再非合作.non_overlap_game(datafile, fname)
