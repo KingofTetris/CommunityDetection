@@ -486,12 +486,12 @@ class non_overlap_game:
         print("LA:" + str(LA))
 
         #所以他实际上把核心组也做了一次对比NMI
-        NMI = metrics.normalized_mutual_info_score(LA, LB)
+        NMI = metrics.normalized_mutual_info_score(LB, LA)
 
         #经过比较以后，现在的博弈过程(仅加入相邻社区，计算相邻社区的邻居节点的亲密度之和作为效用函数)对小网络的NMI没有太大帮助(0.1以下)
         #对大网络1490 的NMI提升可以到0.1-0.2
         print("初始社区的NMI:" + str(NMI))
-        ARI = metrics.adjusted_rand_score(LA, LB)
+        ARI = metrics.adjusted_rand_score(LB, LA)
 
         #Q的计算要把节点分成一个社区
         #比如parition = [[1,3,4,5,6],[8,54,33,12,44]] 里面一个[]就是一个社区
@@ -514,6 +514,7 @@ class non_overlap_game:
 
 
 
+        #TODO 非合作也还是稍微有点慢，试试看能不能加上更新比例因子吧
         # alpha = 0.1  # 更新比例
         #开始博弈
         print("loop begin:")
@@ -613,11 +614,12 @@ class non_overlap_game:
 
             newLA = [self.node_community[k] for k in self.input_node_community.keys()]
             # print("非合作博弈后newLA:" + str(newLA))
-            NMI_LA_newLA = metrics.normalized_mutual_info_score(newLA,LA) #比较LA 和 newLA 有多少相似（改变）
+            NMI_LA_newLA = metrics.normalized_mutual_info_score(LA,newLA) #比较LA 和 newLA 有多少相似（改变）
             print("非合作博弈后newLA对比LA的相似度(NMI)是:" + str(NMI_LA_newLA) + ",非合作博弈后产生的不同为" + str(1 - NMI_LA_newLA)) #用来比较博弈到底产生了多大作用
 
-            NMI = metrics.normalized_mutual_info_score(newLA, LB)
-            ARI = metrics.adjusted_rand_score(newLA, LB)
+
+            NMI = metrics.normalized_mutual_info_score(LB, newLA)
+            ARI = metrics.adjusted_rand_score(LB, newLA)
 
             partition = self.Lables_to_Partition(newLA)  # LA是算法分区
             Q = modularity(self.G,partition)
@@ -758,6 +760,9 @@ class non_overlap_game:
             while isChange is True:  # 如果有改变就继续博弈
                 if len(partition.keys()) == 1:
                     break
+                #现在每次只用到一个社区，然后从所有其他社区中找那个让detaX增量最大的社区。
+                #运行起来太慢，u=0.7跑了两天半都没结束
+                #试试看不找best，只要有增就直接合并。
                 community = random.choice(list(partition.keys()))  # 随机选择博弈社区
                 if last_community == community:  # 如果和上回合选的节点一样就没必要博弈了，重新选
                     continue
@@ -812,12 +817,14 @@ class non_overlap_game:
                     # 目前效用函数的值域是 (-inf,inf) 没有进行归一化。
                     # 得想想办法把指标归一化 方便判断效用是多少的时候才去合作。
 
-                    # 另外为什么复杂度这个高的原因就在于
+                    # 另外为什么复杂度这个高的原因最主要的就在于下面
                     # A 和 B原本不会合并，但是B和C合并生成了D以后，D和A可能会发生合并。
-                    # 这就很麻烦了。你需要穷举所有可能发生合并的社区。
+                    # 这就很麻烦了。每一次如果有合并，你就需要穷举所有可能发生合并的社区。
+                    # 每次合并完得到了新社区，又要从头开始比较其实根本没有必要。
+                    #
                     if key != community \
-                        and self.is_community_close(community,key,partition)\
-                        and (self.community_cooper_utl[community] < 0 or self.community_cooper_utl[key] < 0):
+                        and self.is_community_close(community,key,partition):
+                        # and (self.community_cooper_utl[community] < 0 or self.community_cooper_utl[key] < 0):
                         #取并集
                         union = list(set(partition[key]) | set(partition[community]))
                         # 如果两个社区的效用都变大才会合并
@@ -837,20 +844,38 @@ class non_overlap_game:
                         # 这个条件只有polblogs里面生效，提升了0.01 其他数据集都没什么效果
                         # 修改条件为，如果合作后，两个社区的效用改变之和是提升的，那就合并
                         # 这个条件又比较弱，复杂度太高
-                        # if (deta_x1 + deta_x2) > 0: #真实用这个，专攻dolphin网络
-                        if ( deta_x1 > 0 and deta_x2 > 0): #人工网络用这个
+                        if (deta_x1 + deta_x2) > 0: #真实用这个，专攻dolphin网络
+                        # if ( deta_x1 > 0 and deta_x2 > 0): #人工网络用这个
                             #不能一变大就修改，要找那个合并后收益最大的社区
                             #所有只能暂时先记录下变化值
-                            deta_x = deta_x1 + deta_x2
-                            if deta_x > max_deta_x:
-                               max_deta_x = deta_x
-                               best = key #记录最佳合并社区
-                               chose_community = community
-                               merging_community = key
-                               flag = True #是真的能合并的社区，而不是上一次记录的best。因为上次的best已经被合并删除了。
-                    # 我不管你有没有去合并，总之你比较了就加一次
-                    compare_number = compare_number + 1  # 比较1次就加1
-                    print(compare_number)
+                            # deta_x = deta_x1 + deta_x2
+                            # if deta_x > max_deta_x:
+                            #    max_deta_x = deta_x
+                            #    best = key #记录最佳合并社区
+                            #    chose_community = community
+                            #    merging_community = key
+                            #    flag = True #是真的能合并的社区，而不是上一次记录的best。因为上次的best已经被合并删除了。
+
+                            #修改成找到第一个让它增大的就结束
+                            best = key
+                            chose_community = community
+                            merging_community = key
+                            flag = True  # 是真的能合并的社区，而不是上一次记录的best。因为上次的best已经被合并删除了。
+
+
+                    # 我不管你有没有去合并，总之和别人比较了就算一次,和自己比较不用加。
+                    if key != community:
+                        compare_number = compare_number + 1  # 比较1次就加1
+                        print("当前选择社区是" + str(community)
+                              + ",正在和社区" + str(key)
+                              + "进行比较，当前比较次数"+ str(compare_number))
+
+                    #如果找到能合并的社区就跳出for key循环
+                    if flag is True:
+                        print("当前选择社区是" + str(community)
+                              + ",找到合并社区为" + str(key)
+                              + ",准备开始合并")
+                        break
 
 
                 #找到最佳合并社区以后开始尝试合并
@@ -873,12 +898,11 @@ class non_overlap_game:
                     # compare_number = 0
                     #弹出社区
                     self.community_cooper_utl.pop(best)
-                    # 更新效用值,只需要算新的合并社区的效用值就行了，旧的不用重复算了。
-                    # python不支持重载，只能重命名方法
-                    self.coaliation_utility_sigle(partition,community)
+                    # 更新效用值,只需要算新的合并社区community的效用值就行了，旧的不用重复算了。
+                    self.community_cooper_utl[community] = self.community_utility(community, partition)
                     #发生合并那么
-                    isChange = True
                     compare_number = 0
+
                 #如果比较次数已经超过max,所有社区都没有发生合并,博弈停止
                 if compare_number >= max_compare_number:
                     isChange = False
@@ -889,14 +913,14 @@ class non_overlap_game:
             print("真正合并的次数" + str(merging_number))
             cooperateLA = [self.node_community[k] for k in self.input_node_community.keys()]
             print("合作博弈后cooperLA:" + str(cooperateLA))
-            NMI_LA_newLA = metrics.normalized_mutual_info_score(cooperateLA, newLA)  # 比较cooperateLA 和 newLA 有多少相似（改变）
+            NMI_LA_newLA = metrics.normalized_mutual_info_score(newLA, cooperateLA)  # 比较cooperateLA 和 newLA 有多少相似（改变）
             print("合作博弈后cooperLA对比uncooperLA的相似度(NMI)是:" + str(NMI_LA_newLA) + ",合作博弈后产生的不同为" + str(
                 1 - NMI_LA_newLA))  # 用来比较博弈到底产生了多大作用
 
-            NMI = metrics.normalized_mutual_info_score(cooperateLA, LB)
+            NMI = metrics.normalized_mutual_info_score(LB, cooperateLA)
             print("本次选择合并的社区为:" + str(chose_community) + "," + str(merging_community))
             print("本次合作NMI为:" + str(NMI))
-            ARI = metrics.adjusted_rand_score(cooperateLA, LB)
+            ARI = metrics.adjusted_rand_score(LB, cooperateLA)
 
             newPartition = self.Lables_to_Partition(cooperateLA)  # cooperateLA是算法分区
             Q = modularity(self.G, newPartition)
@@ -932,7 +956,7 @@ class non_overlap_game:
         #更新为最终结果
         for item in max_node_community.keys():
             node_comm = int(max_node_community[item])
-            # 一个[node_comm]对于一个list就是一个社区
+            # node_comm是社区编号,item是节点编号
             self.graph_result[node_comm].append(item)
 
         # print(self.graph_result)
@@ -1037,7 +1061,21 @@ class non_overlap_game:
     #最常用的是 Q(S)= 2e(S)/|S| - (|S|/2|E|)^2  e(S)是S所有节点内再度之和，|S|是所有节点度之和 |E|是总边数
     #TODO 更新成上面那个还是一点效果没有，合作博弈要怎么加进来？？
     def coaliation_utility(self,partition):
-        # coaliation_utility = {}
+        for key in partition.keys():
+            self.community_cooper_utl[key] = self.community_utility(key,partition)
+
+    def temp_utility(self, partition):
+        coa_utility = {}
+        for key in partition.keys():
+            coa_utility[key] = self.community_utility(key,partition)
+        return coa_utility
+
+    '''
+    计算社区号为key的社区效用
+     # coaliation_utility = {}
+     
+     
+        # Function1
         # for key in partition.keys():
         #     s_degree_sum = self.s_degree_sum(key,partition) #当前社区的总度，把partition也传进去，避免遍历整个网络。
         #     e_S = self.s_in_link_number(key,partition) #计算社区s内的边数量
@@ -1053,7 +1091,8 @@ class non_overlap_game:
         #     # s_utility = (e_S / self.edge_count) - (s_degree_sum / (2 * self.edge_count))**2
         #     coaliation_utility[key] = s_utility
 
-
+        
+         # Function2
         # v(S) = 0 |S| = 1
         #      =  ∑ per(i,S)/deg(i) |S|>=2 deg(i)!=0
         # 这个合作是有合作，但是大多时候是在瞎合作，把原来应该分开的社区给合到了一起
@@ -1069,59 +1108,35 @@ class non_overlap_game:
         #             sum = sum + ( 2 * self.per(node, self.node_community[node]) / self.deg[node] - 1)
         #         coaliation_utility[key] = sum
 
-        '''
-        或者按照2014_一种基于合作博弈的社区检测算法
-        Pout>=Pin的时候说明这个社区不合理，让这个社区与Pout最大的社区进行合并
-        根据这个思路，我们让收益函数为Pin - Pout，如果两者都能更大，则进行合并。
-        但问题在于这样简单的设计会让所有社区都合并在一起，最好Pin就是D（G）,Pout=0
-        所以还应该加上一个合并的惩罚项，避免过度合并
-        v(S) = (Pin - Pout)/Pin - (Pin/|E|)^2
-        这样当所有节点合并在一起的时候 v(S)的值就是 1 - 1 = 0
         
-        现在问题是用这个效用函数就需要把合作的条件：合作后两者的效用都要不少于合作前的效用
-        但问题就在于非合作博弈以后形成的社区都有较强的内聚性，这些社区不愿意在没有提升，甚至是会使自身效用降低的情况下去合作帮助别的社区提升效用值
+         # Function3
+        # 或者按照2014_一种基于合作博弈的社区检测算法
+        # Pout>=Pin的时候说明这个社区不合理，让这个社区与Pout最大的社区进行合并
+        # 根据这个思路，我们让收益函数为Pin - Pout，如果两者都能更大，则进行合并。
+        # 但问题在于这样简单的设计会让所有社区都合并在一起，最好Pin就是D（G）,Pout=0
+        # 所以还应该加上一个合并的惩罚项，避免过度合并
+        # v(S) = (Pin - Pout)/Pin - (Pin/|E|)^2
+        # 这样当所有节点合并在一起的时候 v(S)的值就是 1 - 1 = 0
+        # 
+        # 现在问题是用这个效用函数就需要把合作的条件：合作后两者的效用都要不少于合作前的效用
+        # 但问题就在于非合作博弈以后形成的社区都有较强的内聚性，这些社区不愿意在没有提升，
+        # 甚至是会使自身效用降低的情况下去合作帮助别的社区提升效用值
+        # 
+        # 如果把合作的条件削弱，改成：合作后两者效用值的变化量大于0，则doplhin网络可以从0.6759提升到0.8888
         
-        如果把合作的条件削弱，改成：合作后两者效用值的变化量大于0，则doplhin网络可以从0.6759提升到0.8888
-        '''
-        for key in partition.keys():
-            in_nums = self.s_in_link_number(key,partition)
-            out_nums = self.s_out_link_number(key,partition)
-            diff = in_nums - out_nums
-            #有的社区只有单个节点，那么他们的内在边数量就是0
-            #对于0应该另外设置一套v_S，在这里只是简单的用-(diff/E)^2
-            if in_nums == 0:
-                v_S = -(diff / self.edge_count) ** 2
-            else:
-                v_S = (diff / in_nums) -  ( in_nums / self.edge_count) ** 2
-            self.community_cooper_utl[key] = v_S
-
-    #只算社区community的新效用值
-    def coaliation_utility_sigle(self,partition,community):
-        in_nums = self.s_in_link_number(community, partition)
-        out_nums = self.s_out_link_number(community, partition)
+    '''
+    def community_utility(self,key,partition):
+        in_nums = self.s_in_link_number(key, partition)
+        out_nums = self.s_out_link_number(key, partition)
         diff = in_nums - out_nums
         # 有的社区只有单个节点，那么他们的内在边数量就是0
-        # 对于0应该另外设置一套v_S，在这里只是简单的用-(diff/E)^2
+        # 对于0应该另外设置一套v_S，在这里只是简单的用-(diff/E)^2，因为平方以后是正数，前面加上负号才是负数
         if in_nums == 0:
             v_S = -(diff / self.edge_count) ** 2
         else:
             v_S = (diff / in_nums) - (in_nums / self.edge_count) ** 2
-        self.community_cooper_utl[community] = v_S
+        return v_S
 
-    def temp_utility(self, partition):
-        coa_utility = {}
-        for key in partition.keys():
-            in_nums = self.s_in_link_number(key, partition)
-            out_nums = self.s_out_link_number(key, partition)
-            diff = in_nums - out_nums
-            # 有的社区只有单个节点，那么他们的内在边数量就是0
-            # 对于0应该另外设置一套v_S，在这里只是简单的用-(diff/E)^2
-            if in_nums == 0:
-                v_S = -(diff / self.edge_count) ** 2
-            else:
-                v_S = (diff / in_nums) - (in_nums / self.edge_count) ** 2
-            coa_utility[key] = v_S
-        return coa_utility
     # The internal degree of node v in a community
     # 计算节点v在单独社区c中的内在度in_v
     # 也就是节点v与社区C中其他节点的边数的和
@@ -1157,6 +1172,7 @@ class non_overlap_game:
         #如果是特殊情况，社区只有，一个点，那么这个社区s内的连边数量为0
         if(len(partition[s]) == 1):
             return 0
+
         #其他多个节点的社区
         nodes = partition[s]  # get the nodes in community s
         num_links = 0  # initialize the number of links to zero
