@@ -1,8 +1,7 @@
 import networkx as nx
 import csv
 
-from networkx.algorithms.community.quality import modularity, performance  #quality里面有"coverage", "modularity", "performance"3个指标
-from communities.visualization import draw_communities
+from networkx.algorithms.community.quality import modularity, performance  #quality里面有"coverage", "modularity", "performance"3个指标W
 from sklearn import metrics
 from sklearn.metrics import normalized_mutual_info_score as NMI
 import numpy as np
@@ -27,16 +26,25 @@ import os
 
 #计算十次度量 LFR网络
 def compute_metrics_LFR_network(dataset_name):
-    edge_file = './data/LFR_benchmark/LFR_test/' + dataset_name + '/'  + dataset_name + '.dat'
-    community_file = './data/LFR_benchmark/LFR_test/'+ dataset_name + '/'  + dataset_name + '_com.dat'
-    algorithm_community_file_path = './data/algorithm_communities/nash_algorithm/' + dataset_name + '/'
-    file_list = os.listdir(algorithm_community_file_path)
-    #把每个文件都算一次
+    edge_file = './CDME-master/dataset/LFR/LFR10000_u10to80_c100to300/LFR10000_u' + dataset_name + '/network.dat'
+    community_file = './CDME-master/dataset/LFR/LFR10000_u10to80_c100to300/LFR10000_u' + dataset_name + '/community.dat'
+
+    algorithm_community_file_path = './data/algorithm_communities/nash_algorithm/LFR10000_u10to80_c100to300/LFR10000_u' \
+                                    + dataset_name \
+                                    + '/'
+    file_list = os.listdir(algorithm_community_file_path)  # 文件夹
+    # 把每个文件都算一次
     flag = 1
-    for item in file_list:
-        #print(item)
+    for item in file_list:  # 遍历文件夹下的所有文件
+        # print(item)
         algorithm_file_path = algorithm_community_file_path + item
-        read_LFR(edge_file,community_file,algorithm_file_path,flag)
+        try:
+            read_LFR(edge_file, community_file, algorithm_file_path, flag)
+        except Exception as e:
+            print(e)
+            print("出现异常,开始计算下一个实验结果")
+            flag = flag + 1  # 写在这里是因为continue后面的语句不会执行
+            continue  # 如果长度不匹配，继续下一个文件夹
         flag = flag + 1
 
 #计算十次度量 真实数据集
@@ -52,7 +60,7 @@ def compute_metrics_real_network(dataset_name):
         #print(item)
         algorithm_file_path = algorithm_community_file_path + item
         try:
-            read_LFR(edge_file,community_file,algorithm_file_path,flag) #暂时只有比较NMI
+            read_LFR(edge_file,community_file,algorithm_file_path,flag)
         except Exception as e:
             print(e)
             print("出现异常,开始计算下一个实验结果")
@@ -70,6 +78,8 @@ def read_LFR(edge_file_path,community_file_path,algorithm_file_path,flag):
     edge_file = edge_file_path
     community_file = community_file_path
     algorithm_community_file = algorithm_file_path
+
+    print("processing file:" + algorithm_community_file)
     # community_file = './data/real_network/polblogs_com.dat'
     # edge_file = './data/real_network/polblogs.dat'
     # community_file = './data/real_network/polblogs_com.dat'
@@ -138,7 +148,7 @@ def read_LFR(edge_file_path,community_file_path,algorithm_file_path,flag):
             real_com_list.insert(int(element) - 1,community_index)
 
     # print(len(real_com_list))
-    # real_com_list_karate = [1,1,1,1,1,1,1,1,2,2,
+    # real_com_list_karate = [1,1,1,1,1,1,1,1,2,2,x
     #                 1,1,1,1,2,2,1,1,2,1,
     #                 2,1,2,2,2,2,2,2,2,2,
     #                 2,2,2,2]  #空手道俱乐部真实分区列表
@@ -165,9 +175,19 @@ def read_LFR(edge_file_path,community_file_path,algorithm_file_path,flag):
     # print(len(algorithm_com_list))
 
     # print('两个分区文件的长度对比，有的分区会出现重叠社区，很怪')
-    # print(len(real_com_list))
-    # print(len(algorithm_com_list))  # 为什么算法分区列表多了两个值？1490 1492？？？？
-    # print("真实与算法标签对比:")
+    print("真实算法标签长度" + str(len(real_com_list)))
+    print("算法算法标签长度" + str(len(algorithm_com_list)))  # 为什么算法分区列表多了两个值？1490 1492？？？？
+
+    print("真实与算法分区对比:")
+    print("真实分区:" + str(partition))
+    print("算法分区:" + str(algorithm_com_partition))
+
+
+    print("真实与算法标签对比:")
+    print("真实标签:" + str(real_com_list))
+    print("算法标签:" + str(algorithm_com_list))
+
+
     # print(real_com_list)
     # print(algorithm_com_list)
     # # 计算一下模块度
@@ -178,7 +198,6 @@ def read_LFR(edge_file_path,community_file_path,algorithm_file_path,flag):
     except Exception as err: #抛出数量不一致的异常
         print('An exception occured:' + str(err))
     #直接用sklearn 计算NMI
-
     #建议直接写在文件里面，不要再写到控制台了
     print("本次算法分区NMI的值为:" + str(NMI(real_com_list,algorithm_com_list)))
     print("本次算法分区ARI的值为:" + str(metrics.adjusted_rand_score(real_com_list,algorithm_com_list)))
@@ -204,10 +223,14 @@ def read_algorithm_community(filepath):
     return partition
 
 if __name__ == '__main__':
-    #read_LFR()
-    fnamelist = ['karate','dolphins','football','polbooks','polblogs'] #这个顺序是按照节点数来的
-    #异常在函数里面处理了，在这外面的for 不会出现异常 没必要try exception
+    # fnamelist = ['karate','dolphins','football','polbooks','polblogs'] #这个顺序是按照节点数来的
+    # #异常在函数里面处理了，在这外面的for 不会出现异常 没必要try exception
+    # for fname in fnamelist:
+    #     compute_metrics_real_network(fname)
+    #     print("-------------------我是分割线--------------------------")
+    #     print("\n\n\n")
+    fnamelist = ['10','20','30','40','50','60','70','80']
     for fname in fnamelist:
-        compute_metrics_real_network(fname)
+        compute_metrics_LFR_network(fname)
         print("-------------------我是分割线--------------------------")
         print("\n\n\n")

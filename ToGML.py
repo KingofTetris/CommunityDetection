@@ -12,8 +12,6 @@ import csv
 参考文献： A. Lancichinetti, S.Fortunato, F. Radicchi, Benchmark graphsfor testing community detection algorithms, Phys. Rev. E 78 (2008) 046-110.
 
 '''
-def preWork(filepath):
-    read_algorithm_community_and_save_community_dat(filepath)
 
 def toGML():
     G = nx.Graph()
@@ -76,7 +74,7 @@ def toGML():
 
 #根据partition文件返回算法的分区
 #把一串社区化成1 12的形式，即1号节点归属12号社区。目的是为了转成GML文件进一步使用Gephi可视化
-def read_algorithm_community_and_save_community_dat(community_filepath):
+def change_partition_to_community_dat(community_filepath):
     # algorithm_community_file = './data/algorithm_communities/nash_algorithm/nashOverlappingCommunities100_dolphins.dat'
     algorithm_community_file = community_filepath
     partition = [] #[1,1,1,1,4,4,4,5,6,6,6,6.................]
@@ -84,15 +82,17 @@ def read_algorithm_community_and_save_community_dat(community_filepath):
     with open(algorithm_community_file, 'r') as fp:
         for line in fp.readlines():  ##readlines(),函数把所有的行都读取进来；
             # temp = list(line.strip().split('\t'))  ##删除行后的换行符并按\t分割，temp 就是每行的内容啦
-            temp = list(line.strip().split(' '))  ##删除行后的换行符并按\t分割，temp 就是每行的内容啦
+            temp = list(line.strip().split('\t'))  ##删除行后的换行符并按\t分割，temp 就是每行的内容啦
             partition.append(temp)
             #temp = [] #读完一行，把temp赋值为新的空列表
 
     # print(community_filepath.split('/')[-1].split('.')[0].split('_'))  #nashOverlappingCommunities100_dolphins
     # print( (community_filepath.split('/')[-1].split('.')[0].split('_'))[1]  )  #dolphins
     #根据partition给个xxx_com文件
-    name = 'nash_algorithm_' + community_filepath.split('/')[-1].split('.')[0].split('_')[1] + '_com.dat'
-    save_gml_path = './data/algorithm_communities/nash_algorithm_communityFile/' + name
+    # name = 'nash_algorithm_' + community_filepath.split('/')[-1].split('.')[0].split('_')[1] + '_com.dat'
+    # save_gml_path = './data/algorithm_communities/nash_algorithm_communityFile/' + name
+
+    save_gml_path = './CDME-master/dataset/bigNetwork/dblp/dblp_com.dat'
     with open(save_gml_path, 'w') as fp:
         index = 0
         for community in partition:
@@ -103,6 +103,7 @@ def read_algorithm_community_and_save_community_dat(community_filepath):
 
 
 if __name__ == '__main__':
-    filepath = './data/algorithm_communities/nash_algorithm/nashOverlappingCommunities100_LFR_node3000.dat'
-    #preWork(filepath) #先生成com.dat文件，有了就没必要了。
-    toGML()
+    # filepath = './data/algorithm_communities/nash_algorithm/nashOverlappingCommunities100_LFR_node3000.dat'
+    filepath = './CDME-master/dataset/bigNetwork/dblp/dblp.dat'
+    change_partition_to_community_dat(filepath) #先生成com.dat文件，有了就没必要了。
+    # toGML()
